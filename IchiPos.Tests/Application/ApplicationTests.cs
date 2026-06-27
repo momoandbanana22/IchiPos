@@ -118,6 +118,174 @@ public class ApplicationTests
     }
 
     [Fact]
+    public async Task 異常系_投稿テキスト取得失敗時はMisskey投稿を開始しない()
+    {
+        // Arrange
+        var args = new[] { "hello.txt" };
+        var config = new AppConfig();
+
+        var mockParser = new Mock<ICommandLineParser>();
+        mockParser.Setup(x => x.Parse(args)).Returns(ParseResult.Success("hello.txt", null));
+
+        var mockContentResolver = new Mock<IContentResolver>();
+        mockContentResolver.Setup(x => x.ResolveAsync("hello.txt"))
+            .ReturnsAsync(ContentResolveResult.Failure("ファイルが読めません"));
+
+        var mockMisskeyPoster = new Mock<IMisskeyPoster>();
+        var mockOutputWriter = new Mock<IOutputWriter>();
+
+        var app = new IchiPosApplication(
+            mockParser.Object,
+            mockContentResolver.Object,
+            Mock.Of<IImageFolderReader>(),
+            Mock.Of<IImageValidator>(),
+            Mock.Of<IPrePostValidator>(),
+            mockMisskeyPoster.Object,
+            Mock.Of<IXPostLauncher>(),
+            mockOutputWriter.Object);
+
+        // Act
+        var result = await app.RunAsync(args, config);
+
+        // Assert
+        Assert.Equal(1, result);
+        mockOutputWriter.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
+        mockMisskeyPoster.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task 異常系_画像フォルダ読み込み失敗時はMisskey投稿を開始しない()
+    {
+        // Arrange
+        var args = new[] { "hello", "--image-path", "C:\\images" };
+        var config = new AppConfig();
+
+        var mockParser = new Mock<ICommandLineParser>();
+        mockParser.Setup(x => x.Parse(args)).Returns(ParseResult.Success("hello", @"C:\images"));
+
+        var mockContentResolver = new Mock<IContentResolver>();
+        mockContentResolver.Setup(x => x.ResolveAsync("hello"))
+            .ReturnsAsync(ContentResolveResult.Success("hello"));
+
+        var mockImageFolderReader = new Mock<IImageFolderReader>();
+        mockImageFolderReader.Setup(x => x.Read(@"C:\images"))
+            .Returns(ImageFolderReadResult.Failure("フォルダが存在しません"));
+
+        var mockMisskeyPoster = new Mock<IMisskeyPoster>();
+        var mockOutputWriter = new Mock<IOutputWriter>();
+
+        var app = new IchiPosApplication(
+            mockParser.Object,
+            mockContentResolver.Object,
+            mockImageFolderReader.Object,
+            Mock.Of<IImageValidator>(),
+            Mock.Of<IPrePostValidator>(),
+            mockMisskeyPoster.Object,
+            Mock.Of<IXPostLauncher>(),
+            mockOutputWriter.Object);
+
+        // Act
+        var result = await app.RunAsync(args, config);
+
+        // Assert
+        Assert.Equal(1, result);
+        mockOutputWriter.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
+        mockMisskeyPoster.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task 異常系_画像バリデーション失敗時はMisskey投稿を開始しない()
+    {
+        // Arrange
+        var args = new[] { "hello", "--image-path", "C:\\images" };
+        var config = new AppConfig();
+
+        var mockParser = new Mock<ICommandLineParser>();
+        mockParser.Setup(x => x.Parse(args)).Returns(ParseResult.Success("hello", @"C:\images"));
+
+        var mockContentResolver = new Mock<IContentResolver>();
+        mockContentResolver.Setup(x => x.ResolveAsync("hello"))
+            .ReturnsAsync(ContentResolveResult.Success("hello"));
+
+        var mockImageFolderReader = new Mock<IImageFolderReader>();
+        mockImageFolderReader.Setup(x => x.Read(@"C:\images"))
+            .Returns(ImageFolderReadResult.Success(new List<string> { "broken.png" }));
+
+        var mockImageValidator = new Mock<IImageValidator>();
+        mockImageValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Failure("画像が読み込めません"));
+
+        var mockMisskeyPoster = new Mock<IMisskeyPoster>();
+        var mockOutputWriter = new Mock<IOutputWriter>();
+
+        var app = new IchiPosApplication(
+            mockParser.Object,
+            mockContentResolver.Object,
+            mockImageFolderReader.Object,
+            mockImageValidator.Object,
+            Mock.Of<IPrePostValidator>(),
+            mockMisskeyPoster.Object,
+            Mock.Of<IXPostLauncher>(),
+            mockOutputWriter.Object);
+
+        // Act
+        var result = await app.RunAsync(args, config);
+
+        // Assert
+        Assert.Equal(1, result);
+        mockOutputWriter.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
+        mockMisskeyPoster.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task 異常系_投稿前チェック失敗時はMisskey投稿を開始しない()
+    {
+        // Arrange
+        var args = new[] { "hello" };
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+
+        var mockParser = new Mock<ICommandLineParser>();
+        mockParser.Setup(x => x.Parse(args)).Returns(ParseResult.Success("hello", null));
+
+        var mockContentResolver = new Mock<IContentResolver>();
+        mockContentResolver.Setup(x => x.ResolveAsync("hello"))
+            .ReturnsAsync(ContentResolveResult.Success("hello"));
+
+        var mockImageFolderReader = new Mock<IImageFolderReader>();
+        mockImageFolderReader.Setup(x => x.Read(null))
+            .Returns(ImageFolderReadResult.Success(new List<string>()));
+
+        var mockImageValidator = new Mock<IImageValidator>();
+        mockImageValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+
+        var mockPrePostValidator = new Mock<IPrePostValidator>();
+        mockPrePostValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Failure("テキストが長すぎます"));
+
+        var mockMisskeyPoster = new Mock<IMisskeyPoster>();
+        var mockOutputWriter = new Mock<IOutputWriter>();
+
+        var app = new IchiPosApplication(
+            mockParser.Object,
+            mockContentResolver.Object,
+            mockImageFolderReader.Object,
+            mockImageValidator.Object,
+            mockPrePostValidator.Object,
+            mockMisskeyPoster.Object,
+            Mock.Of<IXPostLauncher>(),
+            mockOutputWriter.Object);
+
+        // Act
+        var result = await app.RunAsync(args, config);
+
+        // Assert
+        Assert.Equal(1, result);
+        mockOutputWriter.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
+        mockMisskeyPoster.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+    }
+
+    [Fact]
     public async Task 異常系_Misskey投稿失敗時はX投稿画面を開かない()
     {
         // Arrange
