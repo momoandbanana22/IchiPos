@@ -66,12 +66,12 @@ public class PrePostValidatorTests
     }
 
     [Fact]
-    public void 正常系_画像あり()
+    public void 正常系_添付画像が読み込み可能な場合は成功する()
     {
         // Arrange
         var content = "テスト投稿";
-        var imagePaths = new List<string> { "image1.png", "image2.jpg" };
-        var validator = new PrePostValidator();
+        var imagePaths = new List<string> { "/path/to/image1.png", "/path/to/image2.jpg" };
+        var validator = new PrePostValidator(isImageReadable: _ => true);
 
         // Act
         var result = validator.Validate(content, imagePaths, MaxLength);
@@ -81,12 +81,47 @@ public class PrePostValidatorTests
     }
 
     [Fact]
-    public void 正常系_画像なし()
+    public void 異常系_添付画像が読み込み不可能な場合はエラーを返す()
+    {
+        // Arrange
+        var content = "テスト投稿";
+        var imagePaths = new List<string> { "/path/to/broken.png" };
+        var validator = new PrePostValidator(isImageReadable: _ => false);
+
+        // Act
+        var result = validator.Validate(content, imagePaths, MaxLength);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+    }
+
+    [Fact]
+    public void 異常系_複数画像のうち1枚が読み込み不可能な場合はエラーを返す()
+    {
+        // Arrange
+        var content = "テスト投稿";
+        var validPath = "/path/valid.png";
+        var corruptPath = "/path/corrupt.png";
+        var imagePaths = new List<string> { validPath, corruptPath };
+        var validator = new PrePostValidator(
+            isImageReadable: path => path == validPath);
+
+        // Act
+        var result = validator.Validate(content, imagePaths, MaxLength);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+    }
+
+    [Fact]
+    public void 正常系_添付画像なしの場合は画像チェックをスキップする()
     {
         // Arrange
         var content = "テスト投稿";
         var imagePaths = new List<string>();
-        var validator = new PrePostValidator();
+        var validator = new PrePostValidator(isImageReadable: _ => false);
 
         // Act
         var result = validator.Validate(content, imagePaths, MaxLength);
