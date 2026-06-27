@@ -61,6 +61,7 @@ public class IchiPosApplication : IIchiPosApplication
             _outputWriter.WriteError($"投稿内容エラー: {contentResult.ErrorMessage}");
             return 1;
         }
+        _outputWriter.WriteInfo($"投稿テキストを取得しました（{contentResult.Content!.Length}文字）");
 
         // 3. 画像一覧を取得
         var imageFolderResult = _imageFolderReader.Read(parseResult.ImagePath);
@@ -79,6 +80,7 @@ public class IchiPosApplication : IIchiPosApplication
             _outputWriter.WriteError($"画像エラー: {imageValidationResult.ErrorMessage}");
             return 1;
         }
+        _outputWriter.WriteInfo($"添付画像: {imageValidationResult.ValidImagePaths.Count}枚");
 
         // 5. 投稿前チェック
         var maxLength = Math.Min(config.Limits.MisskeyMaxLength, config.Limits.XMaxLength);
