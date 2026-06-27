@@ -2,7 +2,12 @@ using System.Text;
 
 namespace IchiPos.Content;
 
-public class TextFileReader
+public interface ITextFileReader
+{
+    Task<TextFileReadResult> ReadAsync(string filePath);
+}
+
+public class TextFileReader : ITextFileReader
 {
     static TextFileReader()
     {
