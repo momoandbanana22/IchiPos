@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="IchiPos.Core/IchiPos.Core.csproj" />
+  <Project Path="IchiPos.Tests/IchiPos.Tests.csproj" />
+</Solution>

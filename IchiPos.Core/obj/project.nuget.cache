@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "f7GbQBjh/uo=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\momoa\\source\\repos\\IchiPos\\IchiPos.Core\\IchiPos.Core.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\momoa\\.nuget\\packages\\yamldotnet\\18.1.0\\yamldotnet.18.1.0.nupkg.sha512"
+  ],
+  "logs": []
+}
