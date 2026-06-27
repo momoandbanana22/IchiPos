@@ -26,7 +26,7 @@ public class ImageFolderReader : IImageFolderReader
         try
         {
             var imageFiles = Directory.GetFiles(folderPath)
-                .Where(file => SupportedExtensions.Contains(Path.GetExtension(file).ToLower()))
+                .Where(file => SupportedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
                 .Select(Path.GetFileName)
                 .Where(name => name != null)
                 .OrderBy(name => name!)

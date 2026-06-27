@@ -63,6 +63,32 @@ public class XPostLauncherTests
     }
 
     [Fact]
+    public async Task 正常系_スペースはパーセント20にエンコードされる()
+    {
+        // Arrange
+        // WebUtility.UrlEncode はスペースを "+" にするが、
+        // X intent URL では "%20" が正しい。"+" はそのまま表示される。
+        var content = "テスト 投稿";
+        var config = new AppConfig
+        {
+            X = new XConfig { PostUrlBase = "https://twitter.com/intent/tweet" }
+        };
+
+        var mockBrowserLauncher = new Mock<IBrowserLauncher>();
+        mockBrowserLauncher.Setup(x => x.OpenAsync(It.IsAny<string>()))
+            .ReturnsAsync(BrowserLaunchResult.Success());
+
+        var launcher = new XPostLauncher(mockBrowserLauncher.Object);
+
+        // Act
+        await launcher.LaunchAsync(content, config);
+
+        // Assert
+        mockBrowserLauncher.Verify(x => x.OpenAsync(
+            It.Is<string>(url => url.Contains("%20") && !url.Contains("+"))), Times.Once);
+    }
+
+    [Fact]
     public async Task 異常系_ブラウザ起動失敗()
     {
         // Arrange

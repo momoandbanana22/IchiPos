@@ -18,8 +18,8 @@ public class XPostLauncher : IXPostLauncher
 
     public async Task<XPostLaunchResult> LaunchAsync(string content, AppConfig config)
     {
-        // URLエンコード
-        var encodedContent = System.Net.WebUtility.UrlEncode(content);
+        // URLエンコード（スペースを %20 にするため EscapeDataString を使用）
+        var encodedContent = Uri.EscapeDataString(content);
         
         // URL生成
         var url = $"{config.X.PostUrlBase}?text={encodedContent}";

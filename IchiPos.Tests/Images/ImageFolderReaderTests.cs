@@ -107,6 +107,32 @@ public class ImageFolderReaderTests
     }
 
     [Fact]
+    public void 正常系_拡張子が大文字の画像ファイルも取得できる()
+    {
+        // Arrange
+        // ToLower() はカルチャ依存（トルコ語ロケールで .GIF → .gıf になり検出失敗）。
+        // ToLowerInvariant() を使うべき。
+        var testDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(testDir);
+        File.WriteAllText(Path.Combine(testDir, "image1.PNG"), "fake png");
+        File.WriteAllText(Path.Combine(testDir, "image2.GIF"), "fake gif");
+
+        var reader = new ImageFolderReader();
+
+        // Act
+        var result = reader.Read(testDir);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.ImageFiles.Count);
+        Assert.Contains("image1.PNG", result.ImageFiles);
+        Assert.Contains("image2.GIF", result.ImageFiles);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
     public void 正常系_ファイル名昇順()
     {
         // Arrange

@@ -107,9 +107,12 @@ public class MisskeyHttpClientTests
     }
 
     [Fact]
-    public async Task 異常系_ノート作成API応答にIDが含まれない()
+    public async Task 正常系_HTTP200でcreatedNoteキーがない場合も成功とみなす()
     {
         // Arrange
+        // HTTP 200 は投稿成功の権威的なシグナル。
+        // レスポンスボディに createdNote がなくても成功として扱わないと
+        // 実際には投稿済みなのにユーザーにエラーを表示してしまう。
         var httpClient = CreateHttpClient(HttpStatusCode.OK, "{}");
         var client = new MisskeyHttpClient(httpClient);
 
@@ -122,8 +125,7 @@ public class MisskeyHttpClientTests
             new List<string>());
 
         // Assert
-        Assert.False(result.IsSuccess);
-        Assert.NotNull(result.ErrorMessage);
+        Assert.True(result.IsSuccess);
     }
 
     // ──────────────────────────────────────────────

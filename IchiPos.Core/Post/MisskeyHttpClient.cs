@@ -79,17 +79,19 @@ public class MisskeyHttpClient : IMisskeyHttpClient
                 return MisskeyPostResult.Failure($"ノートの作成に失敗しました: HTTP {(int)response.StatusCode}");
             }
 
+            // HTTP 200 は投稿成功の権威的なシグナル。
+            // レスポンスボディの構造に関わらず成功とみなす。
             var responseJson = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(responseJson);
 
+            string? noteId = null;
             if (doc.RootElement.TryGetProperty("createdNote", out var noteProp) &&
                 noteProp.TryGetProperty("id", out var idProp))
             {
-                var id = idProp.GetString();
-                if (id != null) return MisskeyPostResult.Success(id);
+                noteId = idProp.GetString();
             }
 
-            return MisskeyPostResult.Failure("ノート作成応答にIDが含まれていません");
+            return MisskeyPostResult.Success(noteId ?? string.Empty);
         }
         catch (Exception ex)
         {
