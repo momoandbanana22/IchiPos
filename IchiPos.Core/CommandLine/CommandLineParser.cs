@@ -31,6 +31,10 @@ public class CommandLineParser : ICommandLineParser
                 imagePath = args[index + 1];
                 index += 2;
             }
+            else if (!arg.StartsWith("--"))
+            {
+                return ParseResult.Failure("contentが複数指定されています");
+            }
             else
             {
                 return ParseResult.Failure($"未定義のオプション: {arg}");

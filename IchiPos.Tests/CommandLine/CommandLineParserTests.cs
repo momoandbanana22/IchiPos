@@ -83,6 +83,23 @@ public class CommandLineParserTests
     }
 
     [Fact]
+    public void 異常系_contentが複数指定された場合のエラーメッセージはcontentに言及する()
+    {
+        // Arrange
+        // 仕様F-003: "--" なし第2引数は「contentが複数指定」エラー。
+        // 「未定義のオプション」ではなく content に関するメッセージを返すべき。
+        var args = new[] { "hello", "world" };
+        var parser = new CommandLineParser();
+
+        // Act
+        var result = parser.Parse(args);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Contains("content", result.ErrorMessage);
+    }
+
+    [Fact]
     public void 異常系_imagePathのみ指定()
     {
         // Arrange
