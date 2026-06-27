@@ -11,6 +11,7 @@
           "IchiPos.Core": "1.0.0",
           "Microsoft.NET.Test.Sdk": "17.14.1",
           "Moq": "4.20.72",
+          "System.Drawing.Common": "10.0.9",
           "xunit": "2.9.3"
         },
         "runtime": {
@@ -285,6 +286,22 @@
           }
         }
       },
+      "Microsoft.Win32.SystemEvents/10.0.9": {
+        "runtime": {
+          "lib/net10.0/Microsoft.Win32.SystemEvents.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.926.27113"
+          }
+        },
+        "runtimeTargets": {
+          "runtimes/win/lib/net10.0/Microsoft.Win32.SystemEvents.dll": {
+            "rid": "win",
+            "assetType": "runtime",
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.926.27113"
+          }
+        }
+      },
       "Moq/4.20.72": {
         "dependencies": {
           "Castle.Core": "5.1.1"
@@ -323,6 +340,25 @@
             "assetType": "runtime",
             "assemblyVersion": "6.0.0.0",
             "fileVersion": "6.0.21.52210"
+          }
+        }
+      },
+      "System.Drawing.Common/10.0.9": {
+        "dependencies": {
+          "Microsoft.Win32.SystemEvents": "10.0.9"
+        },
+        "runtime": {
+          "lib/net10.0/System.Drawing.Common.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.926.27113"
+          },
+          "lib/net10.0/System.Private.Windows.Core.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.926.27113"
+          },
+          "lib/net10.0/System.Private.Windows.GdiPlus.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.926.27113"
           }
         }
       },
@@ -386,6 +422,7 @@
       },
       "IchiPos.Core/1.0.0": {
         "dependencies": {
+          "System.Drawing.Common": "10.0.9",
           "YamlDotNet": "18.1.0"
         },
         "runtime": {
@@ -438,6 +475,13 @@
       "path": "microsoft.testplatform.testhost/17.14.1",
       "hashPath": "microsoft.testplatform.testhost.17.14.1.nupkg.sha512"
     },
+    "Microsoft.Win32.SystemEvents/10.0.9": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-dk5HKolAR9bBxlL4dl6Koaf0s/Q47QApog+/o341LSuvWGW6ig4q5fTsgYG0MrK//l2Slv6mygncMK/8lgXVDg==",
+      "path": "microsoft.win32.systemevents/10.0.9",
+      "hashPath": "microsoft.win32.systemevents.10.0.9.nupkg.sha512"
+    },
     "Moq/4.20.72": {
       "type": "package",
       "serviceable": true,
@@ -458,6 +502,13 @@
       "sha512": "sha512-lcyUiXTsETK2ALsZrX+nWuHSIQeazhqPphLfaRxzdGaG93+0kELqpgEHtwWOlQe7+jSFnKwaCAgL4kjeZCQJnw==",
       "path": "system.diagnostics.eventlog/6.0.0",
       "hashPath": "system.diagnostics.eventlog.6.0.0.nupkg.sha512"
+    },
+    "System.Drawing.Common/10.0.9": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ShkEj8jOhklJgrN3SoaVbCcopvqyIgVXHso2/eibQBL7IZxzJjND77UYVlViHqpwPxyQeA67IOut4b41clBkQw==",
+      "path": "system.drawing.common/10.0.9",
+      "hashPath": "system.drawing.common.10.0.9.nupkg.sha512"
     },
     "xunit/2.9.3": {
       "type": "package",

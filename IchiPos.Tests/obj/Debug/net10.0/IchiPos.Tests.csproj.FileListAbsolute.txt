@@ -107,3 +107,8 @@ C:\Users\momoa\source\repos\IchiPos\IchiPos.Tests\obj\Debug\net10.0\refint\IchiP
 C:\Users\momoa\source\repos\IchiPos\IchiPos.Tests\obj\Debug\net10.0\IchiPos.Tests.pdb
 C:\Users\momoa\source\repos\IchiPos\IchiPos.Tests\obj\Debug\net10.0\IchiPos.Tests.genruntimeconfig.cache
 C:\Users\momoa\source\repos\IchiPos\IchiPos.Tests\obj\Debug\net10.0\ref\IchiPos.Tests.dll
+C:\Users\momoa\source\repos\IchiPos\IchiPos.Tests\bin\Debug\net10.0\Microsoft.Win32.SystemEvents.dll
+C:\Users\momoa\source\repos\IchiPos\IchiPos.Tests\bin\Debug\net10.0\System.Drawing.Common.dll
+C:\Users\momoa\source\repos\IchiPos\IchiPos.Tests\bin\Debug\net10.0\System.Private.Windows.Core.dll
+C:\Users\momoa\source\repos\IchiPos\IchiPos.Tests\bin\Debug\net10.0\System.Private.Windows.GdiPlus.dll
+C:\Users\momoa\source\repos\IchiPos\IchiPos.Tests\bin\Debug\net10.0\runtimes\win\lib\net10.0\Microsoft.Win32.SystemEvents.dll
