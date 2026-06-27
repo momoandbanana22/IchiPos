@@ -1,0 +1,32 @@
+using IchiPos.Config;
+
+namespace IchiPos.Post;
+
+public class XPostLauncher
+{
+    private readonly IBrowserLauncher _browserLauncher;
+
+    public XPostLauncher(IBrowserLauncher browserLauncher)
+    {
+        _browserLauncher = browserLauncher;
+    }
+
+    public async Task<XPostLaunchResult> LaunchAsync(string content, AppConfig config)
+    {
+        // URLエンコード
+        var encodedContent = System.Net.WebUtility.UrlEncode(content);
+        
+        // URL生成
+        var url = $"{config.X.PostUrlBase}?text={encodedContent}";
+        
+        // ブラウザで開く
+        var launchResult = await _browserLauncher.OpenAsync(url);
+        
+        if (!launchResult.IsSuccess)
+        {
+            return XPostLaunchResult.Failure(launchResult.ErrorMessage!);
+        }
+        
+        return XPostLaunchResult.Success();
+    }
+}

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("IchiPos.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0d1d4ec54e5ba37b6546ee0bcfa290c194238eea")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6bb06b1778f10594efb265cac72b7c779e843093")]
 [assembly: System.Reflection.AssemblyProductAttribute("IchiPos.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IchiPos.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
