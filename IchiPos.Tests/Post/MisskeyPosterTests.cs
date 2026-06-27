@@ -21,15 +21,16 @@ public class MisskeyPosterTests
                 Visibility = "public"
             }
         };
-        
+
         var mockHttpClient = new Mock<IMisskeyHttpClient>();
         mockHttpClient.Setup(x => x.PostNoteAsync(
             It.IsAny<string>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<string>(),
             It.IsAny<List<string>>()))
             .ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
-        
+
         var poster = new MisskeyPoster(mockHttpClient.Object);
 
         // Act
@@ -42,6 +43,7 @@ public class MisskeyPosterTests
             "https://misskey.example.com",
             "test_token",
             "public",
+            "テスト投稿",
             It.IsAny<List<string>>()), Times.Once);
     }
 
@@ -72,9 +74,10 @@ public class MisskeyPosterTests
             It.IsAny<string>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<string>(),
             It.IsAny<List<string>>()))
             .ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
-        
+
         var poster = new MisskeyPoster(mockHttpClient.Object);
 
         // Act
@@ -139,6 +142,7 @@ public class MisskeyPosterTests
         
         var mockHttpClient = new Mock<IMisskeyHttpClient>();
         mockHttpClient.Setup(x => x.PostNoteAsync(
+            It.IsAny<string>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
             It.IsAny<string>(),

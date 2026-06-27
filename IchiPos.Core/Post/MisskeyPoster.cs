@@ -41,6 +41,7 @@ public class MisskeyPoster : IMisskeyPoster
             config.Misskey.InstanceUrl,
             config.Misskey.AccessToken,
             config.Misskey.Visibility,
+            content,
             fileIds);
 
         return postResult;

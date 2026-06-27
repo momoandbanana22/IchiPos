@@ -3,7 +3,12 @@ using YamlDotNet.Serialization.NamingConventions;
 
 namespace IchiPos.Config;
 
-public class ConfigLoader
+public interface IConfigLoader
+{
+    ConfigLoadResult Load(string baseDirectory);
+}
+
+public class ConfigLoader : IConfigLoader
 {
     public ConfigLoadResult Load(string baseDirectory)
     {

@@ -8,7 +8,12 @@ using IchiPos.Validation;
 
 namespace IchiPos.Application;
 
-public class IchiPosApplication
+public interface IIchiPosApplication
+{
+    Task<int> RunAsync(string[] args, AppConfig config);
+}
+
+public class IchiPosApplication : IIchiPosApplication
 {
     private readonly ICommandLineParser _commandLineParser;
     private readonly IContentResolver _contentResolver;

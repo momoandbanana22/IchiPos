@@ -1,1 +1,27 @@
-﻿Console.WriteLine("Hello, World!");
+using IchiPos.Application;
+using IchiPos.CommandLine;
+using IchiPos.Config;
+using IchiPos.Content;
+using IchiPos.Images;
+using IchiPos.Output;
+using IchiPos.Post;
+using IchiPos.Startup;
+using IchiPos.Validation;
+
+var httpClient = new HttpClient();
+var misskeyHttpClient = new MisskeyHttpClient(httpClient);
+var processStarter = new SystemProcessStarter();
+var browserLauncher = new BrowserLauncher(processStarter);
+
+var app = new IchiPosApplication(
+    new CommandLineParser(),
+    new ContentResolver(new TextFileReader()),
+    new ImageFolderReader(),
+    new ImageValidator(),
+    new PrePostValidator(),
+    new MisskeyPoster(misskeyHttpClient),
+    new XPostLauncher(browserLauncher),
+    new OutputWriter());
+
+var startup = new AppStartup(new ConfigLoader(), app, new OutputWriter());
+return await startup.RunAsync(args, AppContext.BaseDirectory);
