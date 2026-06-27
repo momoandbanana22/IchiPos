@@ -28,7 +28,11 @@ public class ConfigLoader : IConfigLoader
                 .Build();
 
             var config = deserializer.Deserialize<AppConfig>(yaml);
-            return ConfigLoadResult.Success(config!);
+            if (config is null)
+            {
+                return ConfigLoadResult.Failure("設定ファイルが空です");
+            }
+            return ConfigLoadResult.Success(config);
         }
         catch (Exception ex)
         {

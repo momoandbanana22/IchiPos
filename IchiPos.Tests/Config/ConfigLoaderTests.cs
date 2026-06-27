@@ -68,6 +68,32 @@ limits:
     }
 
     [Fact]
+    public void 異常系_設定ファイルが空の場合はエラーを返す()
+    {
+        // Arrange
+        // YamlDotNet は空 YAML を Deserialize すると null を返す。
+        // config! で null 免除するとダウンストリームで NullReferenceException が発生するため、
+        // 空ファイルはロード段階でエラーとして扱うべき。
+        var testDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(testDir);
+        var configDir = Path.Combine(testDir, "config");
+        Directory.CreateDirectory(configDir);
+        File.WriteAllText(Path.Combine(configDir, "config.yaml"), "");
+
+        var loader = new ConfigLoader();
+
+        // Act
+        var result = loader.Load(testDir);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
     public void 異常系_設定ファイルの形式が不正()
     {
         // Arrange
