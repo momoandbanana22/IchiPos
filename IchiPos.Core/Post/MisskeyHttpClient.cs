@@ -24,7 +24,8 @@ public class MisskeyHttpClient : IMisskeyHttpClient
             form.Add(new StringContent(accessToken), "i");
             form.Add(new ByteArrayContent(fileBytes), "file", fileName);
 
-            var response = await _httpClient.PostAsync($"{instanceUrl}/api/drive/files/create", form);
+            var baseUrl = instanceUrl.TrimEnd('/');
+            var response = await _httpClient.PostAsync($"{baseUrl}/api/drive/files/create", form);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -72,7 +73,8 @@ public class MisskeyHttpClient : IMisskeyHttpClient
             var json = JsonSerializer.Serialize(body, options);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync($"{instanceUrl}/api/notes/create", content);
+            var baseUrl = instanceUrl.TrimEnd('/');
+            var response = await _httpClient.PostAsync($"{baseUrl}/api/notes/create", content);
 
             if (!response.IsSuccessStatusCode)
             {

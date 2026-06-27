@@ -24,9 +24,50 @@ public class MisskeyHttpClientTests
         return new HttpClient(mockHandler.Object);
     }
 
+    private static (HttpClient, List<Uri>) CreateCapturingHttpClient(HttpStatusCode statusCode, string responseJson)
+    {
+        var capturedUris = new List<Uri>();
+        var mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) =>
+            {
+                if (req.RequestUri != null) capturedUris.Add(req.RequestUri);
+            })
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = statusCode,
+                Content = new StringContent(responseJson)
+            });
+        return (new HttpClient(mockHandler.Object), capturedUris);
+    }
+
     // ──────────────────────────────────────────────
     // PostNoteAsync
     // ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task 正常系_InstanceUrl末尾スラッシュありでも正しいURLにノートを作成する()
+    {
+        // Arrange
+        // config.yaml の instance_url に末尾スラッシュが付いていると
+        // "{instanceUrl}/api/notes/create" が "https://example.com//api/notes/create" になってしまう。
+        var (httpClient, capturedUris) = CreateCapturingHttpClient(
+            HttpStatusCode.OK, "{\"createdNote\":{\"id\":\"note123\"}}");
+        var client = new MisskeyHttpClient(httpClient);
+
+        // Act
+        await client.PostNoteAsync(
+            "https://misskey.example.com/",  // 末尾スラッシュ付き
+            "token", "public", "テスト", new List<string>());
+
+        // Assert
+        Assert.Single(capturedUris);
+        Assert.Equal("https://misskey.example.com/api/notes/create", capturedUris[0].ToString());
+    }
 
     [Fact]
     public async Task 正常系_テキストのみのノートを作成する()
@@ -208,6 +249,34 @@ public class MisskeyHttpClientTests
             // Assert
             Assert.False(result.IsSuccess);
             Assert.NotNull(result.ErrorMessage);
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public async Task 正常系_InstanceUrl末尾スラッシュありでも正しいURLに画像をアップロードする()
+    {
+        // Arrange
+        var (httpClient, capturedUris) = CreateCapturingHttpClient(
+            HttpStatusCode.OK, "{\"id\":\"file123\"}");
+        var client = new MisskeyHttpClient(httpClient);
+
+        var tempFile = Path.GetTempFileName();
+        await File.WriteAllBytesAsync(tempFile, new byte[] { 0x89, 0x50, 0x4E, 0x47 });
+        try
+        {
+            // Act
+            await client.UploadImageAsync(
+                "https://misskey.example.com/",  // 末尾スラッシュ付き
+                "token",
+                tempFile);
+
+            // Assert
+            Assert.Single(capturedUris);
+            Assert.Equal("https://misskey.example.com/api/drive/files/create", capturedUris[0].ToString());
         }
         finally
         {
