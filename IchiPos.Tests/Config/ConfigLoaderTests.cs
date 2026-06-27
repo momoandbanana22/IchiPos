@@ -68,6 +68,84 @@ limits:
     }
 
     [Fact]
+    public void 異常系_InstanceUrlが未設定の場合はエラーを返す()
+    {
+        // Arrange
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: """"
+  access_token: test_token
+  visibility: public
+x:
+  post_url_base: https://twitter.com/intent/tweet
+");
+        // Act
+        var result = new ConfigLoader().Load(testDir);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 異常系_AccessTokenが未設定の場合はエラーを返す()
+    {
+        // Arrange
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: """"
+  visibility: public
+x:
+  post_url_base: https://twitter.com/intent/tweet
+");
+        // Act
+        var result = new ConfigLoader().Load(testDir);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 異常系_PostUrlBaseが未設定の場合はエラーを返す()
+    {
+        // Arrange
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+  visibility: public
+x:
+  post_url_base: """"
+");
+        // Act
+        var result = new ConfigLoader().Load(testDir);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    private static string CreateConfigDir(string yaml)
+    {
+        var testDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var configDir = Path.Combine(testDir, "config");
+        Directory.CreateDirectory(configDir);
+        File.WriteAllText(Path.Combine(configDir, "config.yaml"), yaml);
+        return testDir;
+    }
+
+    [Fact]
     public void 異常系_設定ファイルが空の場合はエラーを返す()
     {
         // Arrange

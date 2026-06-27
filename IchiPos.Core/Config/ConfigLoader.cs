@@ -32,6 +32,14 @@ public class ConfigLoader : IConfigLoader
             {
                 return ConfigLoadResult.Failure("設定ファイルが空です");
             }
+
+            if (string.IsNullOrWhiteSpace(config.Misskey.InstanceUrl))
+                return ConfigLoadResult.Failure("設定 misskey.instance_url が設定されていません");
+            if (string.IsNullOrWhiteSpace(config.Misskey.AccessToken))
+                return ConfigLoadResult.Failure("設定 misskey.access_token が設定されていません");
+            if (string.IsNullOrWhiteSpace(config.X.PostUrlBase))
+                return ConfigLoadResult.Failure("設定 x.post_url_base が設定されていません");
+
             return ConfigLoadResult.Success(config);
         }
         catch (Exception ex)
