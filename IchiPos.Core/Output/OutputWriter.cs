@@ -9,18 +9,20 @@ public interface IOutputWriter
 
 public class OutputWriter : IOutputWriter
 {
-    public void WriteSuccess(string message)
+    private readonly TextWriter _out;
+    private readonly TextWriter _error;
+
+    public OutputWriter() : this(Console.Out, Console.Error) { }
+
+    public OutputWriter(TextWriter @out, TextWriter error)
     {
-        Console.WriteLine(message);
+        _out = @out;
+        _error = error;
     }
 
-    public void WriteError(string message)
-    {
-        Console.Error.WriteLine(message);
-    }
+    public void WriteSuccess(string message) => _out.WriteLine(message);
 
-    public void WriteInfo(string message)
-    {
-        Console.WriteLine(message);
-    }
+    public void WriteError(string message) => _error.WriteLine(message);
+
+    public void WriteInfo(string message) => _out.WriteLine(message);
 }
