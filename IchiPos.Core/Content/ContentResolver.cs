@@ -1,6 +1,11 @@
 namespace IchiPos.Content;
 
-public class ContentResolver
+public interface IContentResolver
+{
+    Task<ContentResolveResult> ResolveAsync(string content);
+}
+
+public class ContentResolver : IContentResolver
 {
     private readonly ITextFileReader _textFileReader;
 

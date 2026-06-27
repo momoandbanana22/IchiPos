@@ -1,6 +1,11 @@
 namespace IchiPos.Validation;
 
-public class PrePostValidator
+public interface IPrePostValidator
+{
+    PrePostValidationResult Validate(string content, List<string> imagePaths, int maxLength);
+}
+
+public class PrePostValidator : IPrePostValidator
 {
     public PrePostValidationResult Validate(string content, List<string> imagePaths, int maxLength)
     {

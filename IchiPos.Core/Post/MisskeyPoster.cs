@@ -2,7 +2,12 @@ using IchiPos.Config;
 
 namespace IchiPos.Post;
 
-public class MisskeyPoster
+public interface IMisskeyPoster
+{
+    Task<MisskeyPostResult> PostAsync(string content, List<string> imagePaths, AppConfig config);
+}
+
+public class MisskeyPoster : IMisskeyPoster
 {
     private readonly IMisskeyHttpClient _httpClient;
 

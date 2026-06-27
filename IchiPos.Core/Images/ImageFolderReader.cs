@@ -1,6 +1,11 @@
 namespace IchiPos.Images;
 
-public class ImageFolderReader
+public interface IImageFolderReader
+{
+    ImageFolderReadResult Read(string? folderPath);
+}
+
+public class ImageFolderReader : IImageFolderReader
 {
     private static readonly string[] SupportedExtensions = { ".png", ".jpg", ".jpeg", ".gif" };
 

@@ -3,7 +3,12 @@ using System.Drawing.Imaging;
 
 namespace IchiPos.Images;
 
-public class ImageValidator
+public interface IImageValidator
+{
+    ImageValidationResult Validate(string folderPath, List<string> fileNames);
+}
+
+public class ImageValidator : IImageValidator
 {
     public ImageValidationResult Validate(string folderPath, List<string> fileNames)
     {

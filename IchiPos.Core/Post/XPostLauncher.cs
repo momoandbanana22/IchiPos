@@ -2,7 +2,12 @@ using IchiPos.Config;
 
 namespace IchiPos.Post;
 
-public class XPostLauncher
+public interface IXPostLauncher
+{
+    Task<XPostLaunchResult> LaunchAsync(string content, AppConfig config);
+}
+
+public class XPostLauncher : IXPostLauncher
 {
     private readonly IBrowserLauncher _browserLauncher;
 

@@ -1,6 +1,11 @@
 namespace IchiPos.CommandLine;
 
-public class CommandLineParser
+public interface ICommandLineParser
+{
+    ParseResult Parse(string[] args);
+}
+
+public class CommandLineParser : ICommandLineParser
 {
     public ParseResult Parse(string[] args)
     {
