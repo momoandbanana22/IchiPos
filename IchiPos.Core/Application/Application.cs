@@ -24,6 +24,7 @@ public class IchiPosApplication : IIchiPosApplication
     private readonly IXPostLauncher _xPostLauncher;
     private readonly IOutputWriter _outputWriter;
     private readonly IClipboardService _clipboardService;
+    private readonly IImageCleanupService _imageCleanupService;
 
     public IchiPosApplication(
         ICommandLineParser commandLineParser,
@@ -34,7 +35,8 @@ public class IchiPosApplication : IIchiPosApplication
         IMisskeyPoster misskeyPoster,
         IXPostLauncher xPostLauncher,
         IOutputWriter outputWriter,
-        IClipboardService clipboardService)
+        IClipboardService clipboardService,
+        IImageCleanupService imageCleanupService)
     {
         _commandLineParser = commandLineParser;
         _contentResolver = contentResolver;
@@ -45,6 +47,7 @@ public class IchiPosApplication : IIchiPosApplication
         _xPostLauncher = xPostLauncher;
         _outputWriter = outputWriter;
         _clipboardService = clipboardService;
+        _imageCleanupService = imageCleanupService;
     }
 
     public async Task<int> RunAsync(string[] args, AppConfig config)
@@ -131,6 +134,8 @@ public class IchiPosApplication : IIchiPosApplication
                 _outputWriter.WriteInfo("画像をクリップボードにコピーしました。X下書き画面で Ctrl+V で貼り付けてください。");
             else
                 _outputWriter.WriteInfo($"1枚目の画像をクリップボードにコピーしました（全{total}枚）。X下書き画面で Ctrl+V で貼り付けてください。残り{total - 1}枚は手動で添付してください。");
+
+            await _imageCleanupService.RunAsync(imageValidationResult.ValidImagePaths);
         }
 
         return 0;

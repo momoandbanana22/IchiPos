@@ -13,6 +13,7 @@ var misskeyHttpClient = new MisskeyHttpClient(httpClient);
 var processStarter = new SystemProcessStarter();
 var browserLauncher = new BrowserLauncher(processStarter);
 
+var outputWriter = new OutputWriter();
 var app = new IchiPosApplication(
     new CommandLineParser(),
     new ContentResolver(new TextFileReader()),
@@ -21,8 +22,9 @@ var app = new IchiPosApplication(
     new PrePostValidator(),
     new MisskeyPoster(misskeyHttpClient),
     new XPostLauncher(browserLauncher),
-    new OutputWriter(),
-    new WindowsClipboardService());
+    outputWriter,
+    new WindowsClipboardService(),
+    new ImageCleanupService(new ConsoleUserPrompt(), outputWriter));
 
 var startup = new AppStartup(new ConfigLoader(), app, new OutputWriter());
 return await startup.RunAsync(args, AppContext.BaseDirectory);
