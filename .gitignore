@@ -37,3 +37,6 @@ bld/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+
+# アクセストークンを含む実際の設定ファイルはコミットしない
+config/config.yaml

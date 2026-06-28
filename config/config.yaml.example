@@ -1,0 +1,17 @@
+misskey:
+  # 投稿先 Misskey インスタンスの URL（末尾スラッシュなし推奨）
+  instance_url: https://misskey.example.com
+  # アクセストークン（設定 > API > アクセストークンの発行）
+  access_token: YOUR_ACCESS_TOKEN_HERE
+  # 投稿の公開範囲: public / home / followers / specified
+  visibility: public
+
+x:
+  # X の投稿 Intent URL（変更不要）
+  post_url_base: https://twitter.com/intent/tweet
+
+limits:
+  # Misskey の文字数上限（インスタンスの設定に合わせる）
+  misskey_max_length: 5000
+  # X の文字数上限
+  x_max_length: 280

@@ -25,9 +25,17 @@ IchiPos.exe <content> [--image-path <folder>]
 
 ## 設定ファイル
 
-設定ファイルは YAML 形式で、実行ファイルと同じディレクトリの `./config` に配置します。
+設定ファイルは YAML 形式で、実行ファイルと同じディレクトリの `./config/config.yaml` に配置します。
 
-設定ファイルが存在しない場合はエラーとなります。
+テンプレートをコピーして作成してください。
+
+```bash
+cp config/config.yaml.example config/config.yaml
+```
+
+各フィールドの説明は [config/config.yaml.example](config/config.yaml.example) を参照してください。
+
+設定ファイルが存在しない場合、または必須フィールドが未設定の場合はエラーとなります。
 
 ## ライセンス
 
