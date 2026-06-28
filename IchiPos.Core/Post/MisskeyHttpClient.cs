@@ -58,13 +58,11 @@ public class MisskeyHttpClient : IMisskeyHttpClient
     {
         try
         {
-            var body = new
-            {
-                i = accessToken,
-                text,
-                visibility,
-                fileIds
-            };
+            // fileIds が空のとき "fileIds": [] を送ると 400 を返す Misskey インスタンスがあるため、
+            // 画像がある場合のみフィールドを含める。
+            object body = fileIds.Count > 0
+                ? new { i = accessToken, text, visibility, fileIds }
+                : (object)new { i = accessToken, text, visibility };
 
             var options = new JsonSerializerOptions
             {

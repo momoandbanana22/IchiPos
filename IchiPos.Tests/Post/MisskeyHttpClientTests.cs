@@ -128,6 +128,44 @@ public class MisskeyHttpClientTests
     }
 
     [Fact]
+    public async Task 正常系_画像なし投稿のリクエストにfileIdsを含まない()
+    {
+        // Arrange
+        // Misskey の一部バージョンは "fileIds": [] を 400 Bad Request で拒否する。
+        // 画像がない場合はフィールドごと省略しなければならない。
+        string? capturedBody = null;
+        var mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback<HttpRequestMessage, CancellationToken>(async (req, _) =>
+            {
+                capturedBody = await req.Content!.ReadAsStringAsync();
+            })
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent("{\"createdNote\":{\"id\":\"note123\"}}")
+            });
+        var httpClient = new HttpClient(mockHandler.Object);
+        var client = new MisskeyHttpClient(httpClient);
+
+        // Act
+        await client.PostNoteAsync(
+            "https://misskey.example.com",
+            "token",
+            "public",
+            "テスト投稿",
+            new List<string>());
+
+        // Assert
+        Assert.NotNull(capturedBody);
+        Assert.DoesNotContain("fileIds", capturedBody);
+    }
+
+    [Fact]
     public async Task 異常系_ノート作成HTTPエラー()
     {
         // Arrange
