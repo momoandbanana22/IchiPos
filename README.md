@@ -76,12 +76,14 @@ cp config/config.yaml.example config/config.yaml
 
 ```text
 IchiPos.exe <content> [--image-path <folder>]
+IchiPos.exe --version
 ```
 
 | 引数 | 必須 | 内容 |
 |---|---|---|
 | `<content>` | 必須 | 投稿テキスト、または `.txt` ファイルパス |
 | `--image-path <folder>` | 任意 | 添付画像を格納したフォルダパス |
+| `--version` | 任意 | バージョンを表示して終了する |
 
 ### 実行例
 
@@ -94,6 +96,9 @@ IchiPos.exe post.txt
 
 # 画像フォルダを指定して投稿
 IchiPos.exe post.txt --image-path C:\Pictures\today
+
+# バージョン確認
+IchiPos.exe --version
 ```
 
 ### 画像付き投稿について

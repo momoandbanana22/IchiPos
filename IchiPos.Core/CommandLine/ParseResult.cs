@@ -3,6 +3,7 @@ namespace IchiPos.CommandLine;
 public class ParseResult
 {
     public bool IsSuccess { get; private set; }
+    public bool IsVersionRequest { get; private set; }
     public string? Content { get; private set; }
     public string? ImagePath { get; private set; }
     public string? ErrorMessage { get; private set; }
@@ -26,5 +27,10 @@ public class ParseResult
             IsSuccess = false,
             ErrorMessage = errorMessage
         };
+    }
+
+    public static ParseResult VersionRequest()
+    {
+        return new ParseResult { IsVersionRequest = true };
     }
 }

@@ -1,3 +1,4 @@
+using IchiPos;
 using IchiPos.CommandLine;
 using IchiPos.Config;
 using IchiPos.Content;
@@ -54,6 +55,11 @@ public class IchiPosApplication : IIchiPosApplication
     {
         // 1. コマンドライン引数を解析
         var parseResult = _commandLineParser.Parse(args);
+        if (parseResult.IsVersionRequest)
+        {
+            _outputWriter.WriteInfo($"IchiPos {AppVersion.Current}");
+            return 0;
+        }
         if (!parseResult.IsSuccess)
         {
             _outputWriter.WriteError($"入力エラー: {parseResult.ErrorMessage}");

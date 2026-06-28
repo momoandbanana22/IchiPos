@@ -146,4 +146,18 @@ public class CommandLineParserTests
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.ErrorMessage);
     }
+
+    [Fact]
+    public void 正常系_versionオプションを解析できる()
+    {
+        // Arrange
+        var args = new[] { "--version" };
+        var parser = new CommandLineParser();
+
+        // Act
+        var result = parser.Parse(args);
+
+        // Assert
+        Assert.True(result.IsVersionRequest);
+    }
 }

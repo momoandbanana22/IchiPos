@@ -278,6 +278,28 @@ public class ApplicationTests
         mockCleanup.Verify(x => x.RunAsync(It.IsAny<List<string>>()), Times.Never);
     }
 
+    [Fact]
+    public async Task 正常系_versionオプション指定時にバージョンを出力して終了する()
+    {
+        var args = new[] { "--version" };
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+
+        var mockParser = new Mock<ICommandLineParser>();
+        mockParser.Setup(x => x.Parse(args)).Returns(ParseResult.VersionRequest());
+        var mockOutput = new Mock<IOutputWriter>();
+        var mockMisskey = new Mock<IMisskeyPoster>();
+
+        var app = BuildApp(mockParser, new Mock<IContentResolver>(), new Mock<IImageFolderReader>(),
+            new Mock<IImageValidator>(), new Mock<IPrePostValidator>(), mockMisskey,
+            new Mock<IXPostLauncher>(), mockOutput);
+
+        var result = await app.RunAsync(args, config);
+
+        Assert.Equal(0, result);
+        mockOutput.Verify(x => x.WriteInfo(It.Is<string>(s => s.Contains("1.0.1"))), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+    }
+
     // ──────────────────────────────────────────────────────────────────
     // 異常系
     // ──────────────────────────────────────────────────────────────────

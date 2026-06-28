@@ -17,7 +17,11 @@ public class CommandLineParser : ICommandLineParser
         {
             var arg = args[index];
 
-            if (arg == "--image-path")
+            if (arg == "--version")
+            {
+                return ParseResult.VersionRequest();
+            }
+            else if (arg == "--image-path")
             {
                 if (index + 1 >= args.Length)
                     return ParseResult.Failure("--image-path の後にフォルダパスが指定されていません");

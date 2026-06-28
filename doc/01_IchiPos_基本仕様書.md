@@ -31,7 +31,10 @@ X の最終投稿操作はユーザーが行う。
 
 ```text
 IchiPos.exe <content> [--image-path <folder>]
+IchiPos.exe --version
 ```
+
+`--version` を指定した場合、バージョンを表示して終了する。投稿処理は行わない。
 
 ***
 
