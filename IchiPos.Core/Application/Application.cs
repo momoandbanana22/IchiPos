@@ -23,6 +23,7 @@ public class IchiPosApplication : IIchiPosApplication
     private readonly IMisskeyPoster _misskeyPoster;
     private readonly IXPostLauncher _xPostLauncher;
     private readonly IOutputWriter _outputWriter;
+    private readonly IClipboardService _clipboardService;
 
     public IchiPosApplication(
         ICommandLineParser commandLineParser,
@@ -32,7 +33,8 @@ public class IchiPosApplication : IIchiPosApplication
         IPrePostValidator prePostValidator,
         IMisskeyPoster misskeyPoster,
         IXPostLauncher xPostLauncher,
-        IOutputWriter outputWriter)
+        IOutputWriter outputWriter,
+        IClipboardService clipboardService)
     {
         _commandLineParser = commandLineParser;
         _contentResolver = contentResolver;
@@ -42,6 +44,7 @@ public class IchiPosApplication : IIchiPosApplication
         _misskeyPoster = misskeyPoster;
         _xPostLauncher = xPostLauncher;
         _outputWriter = outputWriter;
+        _clipboardService = clipboardService;
     }
 
     public async Task<int> RunAsync(string[] args, AppConfig config)
@@ -117,6 +120,18 @@ public class IchiPosApplication : IIchiPosApplication
         }
 
         _outputWriter.WriteSuccess("X投稿画面起動成功");
+
+        // X Intent URL では画像を渡せないため、ユーザーが Ctrl+V で貼り付けられるよう
+        // 1枚目の画像をクリップボードにコピーする。
+        if (imageValidationResult.ValidImagePaths.Count > 0)
+        {
+            _clipboardService.SetImage(imageValidationResult.ValidImagePaths[0]);
+            var total = imageValidationResult.ValidImagePaths.Count;
+            if (total == 1)
+                _outputWriter.WriteInfo("画像をクリップボードにコピーしました。X下書き画面で Ctrl+V で貼り付けてください。");
+            else
+                _outputWriter.WriteInfo($"1枚目の画像をクリップボードにコピーしました（全{total}枚）。X下書き画面で Ctrl+V で貼り付けてください。残り{total - 1}枚は手動で添付してください。");
+        }
 
         return 0;
     }

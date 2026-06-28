@@ -75,7 +75,8 @@ public class ApplicationTests
             mockPrePostValidator.Object,
             mockMisskeyPoster.Object,
             mockXPostLauncher.Object,
-            mockOutputWriter.Object);
+            mockOutputWriter.Object,
+            Mock.Of<IClipboardService>());
 
         // Act
         var result = await app.RunAsync(args, config);
@@ -107,7 +108,8 @@ public class ApplicationTests
             Mock.Of<IPrePostValidator>(),
             Mock.Of<IMisskeyPoster>(),
             Mock.Of<IXPostLauncher>(),
-            mockOutputWriter.Object);
+            mockOutputWriter.Object,
+            Mock.Of<IClipboardService>());
 
         // Act
         var result = await app.RunAsync(args, config);
@@ -122,7 +124,6 @@ public class ApplicationTests
     {
         // Arrange
         // F-010 §13.3: 正常時に「投稿テキストを取得したこと」を出力すること。
-        // 現在は WriteInfo が一度も呼ばれていない。
         var args = new[] { "hello" };
         var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
 
@@ -159,7 +160,8 @@ public class ApplicationTests
             mockParser.Object, mockContentResolver.Object,
             mockImageFolderReader.Object, mockImageValidator.Object,
             mockPrePostValidator.Object, mockMisskeyPoster.Object,
-            mockXPostLauncher.Object, mockOutputWriter.Object);
+            mockXPostLauncher.Object, mockOutputWriter.Object,
+            Mock.Of<IClipboardService>());
 
         // Act
         await app.RunAsync(args, config);
@@ -212,7 +214,8 @@ public class ApplicationTests
             mockParser.Object, mockContentResolver.Object,
             mockImageFolderReader.Object, mockImageValidator.Object,
             mockPrePostValidator.Object, mockMisskeyPoster.Object,
-            mockXPostLauncher.Object, mockOutputWriter.Object);
+            mockXPostLauncher.Object, mockOutputWriter.Object,
+            Mock.Of<IClipboardService>());
 
         // Act
         await app.RunAsync(args, config);
@@ -221,6 +224,110 @@ public class ApplicationTests
         mockOutputWriter.Verify(
             x => x.WriteInfo(It.Is<string>(s => s.Contains("添付画像") && s.Contains("2"))),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_X投稿成功後に1枚目の画像をクリップボードにコピーする()
+    {
+        // Arrange
+        // X の Intent URL では画像を渡せないため、ユーザーが Ctrl+V で貼り付けられるよう
+        // X 投稿画面起動後にクリップボードへ画像をコピーする。
+        var args = new[] { "hello", "--image-path", @"C:\images" };
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+
+        var mockParser = new Mock<ICommandLineParser>();
+        mockParser.Setup(x => x.Parse(args)).Returns(ParseResult.Success("hello", @"C:\images"));
+
+        var mockContentResolver = new Mock<IContentResolver>();
+        mockContentResolver.Setup(x => x.ResolveAsync("hello"))
+            .ReturnsAsync(ContentResolveResult.Success("hello"));
+
+        var mockImageFolderReader = new Mock<IImageFolderReader>();
+        mockImageFolderReader.Setup(x => x.Read(@"C:\images"))
+            .Returns(ImageFolderReadResult.Success(new List<string> { "a.png", "b.png" }));
+
+        var validPaths = new List<string> { @"C:\images\a.png", @"C:\images\b.png" };
+        var mockImageValidator = new Mock<IImageValidator>();
+        mockImageValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(validPaths));
+
+        var mockPrePostValidator = new Mock<IPrePostValidator>();
+        mockPrePostValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Success());
+
+        var mockMisskeyPoster = new Mock<IMisskeyPoster>();
+        mockMisskeyPoster.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note123"));
+
+        var mockXPostLauncher = new Mock<IXPostLauncher>();
+        mockXPostLauncher.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>()))
+            .ReturnsAsync(XPostLaunchResult.Success());
+
+        var mockOutputWriter = new Mock<IOutputWriter>();
+        var mockClipboard = new Mock<IClipboardService>();
+
+        var app = new IchiPosApplication(
+            mockParser.Object, mockContentResolver.Object,
+            mockImageFolderReader.Object, mockImageValidator.Object,
+            mockPrePostValidator.Object, mockMisskeyPoster.Object,
+            mockXPostLauncher.Object, mockOutputWriter.Object,
+            mockClipboard.Object);
+
+        // Act
+        await app.RunAsync(args, config);
+
+        // Assert: 1枚目のパスでコピーが1回だけ呼ばれる
+        mockClipboard.Verify(x => x.SetImage(@"C:\images\a.png"), Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_画像なし投稿後はクリップボードを操作しない()
+    {
+        // Arrange
+        var args = new[] { "hello" };
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+
+        var mockParser = new Mock<ICommandLineParser>();
+        mockParser.Setup(x => x.Parse(args)).Returns(ParseResult.Success("hello", null));
+
+        var mockContentResolver = new Mock<IContentResolver>();
+        mockContentResolver.Setup(x => x.ResolveAsync("hello"))
+            .ReturnsAsync(ContentResolveResult.Success("hello"));
+
+        var mockImageFolderReader = new Mock<IImageFolderReader>();
+        mockImageFolderReader.Setup(x => x.Read(null))
+            .Returns(ImageFolderReadResult.Success(new List<string>()));
+
+        var mockImageValidator = new Mock<IImageValidator>();
+        mockImageValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+
+        var mockPrePostValidator = new Mock<IPrePostValidator>();
+        mockPrePostValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Success());
+
+        var mockMisskeyPoster = new Mock<IMisskeyPoster>();
+        mockMisskeyPoster.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note123"));
+
+        var mockXPostLauncher = new Mock<IXPostLauncher>();
+        mockXPostLauncher.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>()))
+            .ReturnsAsync(XPostLaunchResult.Success());
+
+        var mockClipboard = new Mock<IClipboardService>();
+
+        var app = new IchiPosApplication(
+            mockParser.Object, mockContentResolver.Object,
+            mockImageFolderReader.Object, mockImageValidator.Object,
+            mockPrePostValidator.Object, mockMisskeyPoster.Object,
+            mockXPostLauncher.Object, Mock.Of<IOutputWriter>(),
+            mockClipboard.Object);
+
+        // Act
+        await app.RunAsync(args, config);
+
+        // Assert: 画像なしならクリップボードは触らない
+        mockClipboard.Verify(x => x.SetImage(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -248,7 +355,8 @@ public class ApplicationTests
             Mock.Of<IPrePostValidator>(),
             mockMisskeyPoster.Object,
             Mock.Of<IXPostLauncher>(),
-            mockOutputWriter.Object);
+            mockOutputWriter.Object,
+            Mock.Of<IClipboardService>());
 
         // Act
         var result = await app.RunAsync(args, config);
@@ -288,7 +396,8 @@ public class ApplicationTests
             Mock.Of<IPrePostValidator>(),
             mockMisskeyPoster.Object,
             Mock.Of<IXPostLauncher>(),
-            mockOutputWriter.Object);
+            mockOutputWriter.Object,
+            Mock.Of<IClipboardService>());
 
         // Act
         var result = await app.RunAsync(args, config);
@@ -332,7 +441,8 @@ public class ApplicationTests
             Mock.Of<IPrePostValidator>(),
             mockMisskeyPoster.Object,
             Mock.Of<IXPostLauncher>(),
-            mockOutputWriter.Object);
+            mockOutputWriter.Object,
+            Mock.Of<IClipboardService>());
 
         // Act
         var result = await app.RunAsync(args, config);
@@ -380,7 +490,8 @@ public class ApplicationTests
             mockPrePostValidator.Object,
             mockMisskeyPoster.Object,
             Mock.Of<IXPostLauncher>(),
-            mockOutputWriter.Object);
+            mockOutputWriter.Object,
+            Mock.Of<IClipboardService>());
 
         // Act
         var result = await app.RunAsync(args, config);
@@ -440,7 +551,6 @@ public class ApplicationTests
             .ReturnsAsync(MisskeyPostResult.Failure("Misskey投稿失敗"));
 
         var mockXPostLauncher = new Mock<IXPostLauncher>();
-
         var mockOutputWriter = new Mock<IOutputWriter>();
 
         var app = new IchiPosApplication(
@@ -451,7 +561,8 @@ public class ApplicationTests
             mockPrePostValidator.Object,
             mockMisskeyPoster.Object,
             mockXPostLauncher.Object,
-            mockOutputWriter.Object);
+            mockOutputWriter.Object,
+            Mock.Of<IClipboardService>());
 
         // Act
         var result = await app.RunAsync(args, config);

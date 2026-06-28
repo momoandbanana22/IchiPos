@@ -21,7 +21,8 @@ var app = new IchiPosApplication(
     new PrePostValidator(),
     new MisskeyPoster(misskeyHttpClient),
     new XPostLauncher(browserLauncher),
-    new OutputWriter());
+    new OutputWriter(),
+    new WindowsClipboardService());
 
 var startup = new AppStartup(new ConfigLoader(), app, new OutputWriter());
 return await startup.RunAsync(args, AppContext.BaseDirectory);
