@@ -39,6 +39,8 @@ public class XPostLauncherTests
     public async Task 正常系_特殊文字を含む投稿テキスト()
     {
         // Arrange
+        // # は URL の fragment 区切り文字のため、エンコードされないと X サーバーに届かない。
+        // @ も未エンコードだとユーザー情報として解釈される場合がある。
         var content = "テスト投稿 #hashtag @mention";
         var config = new AppConfig
         {
@@ -47,11 +49,11 @@ public class XPostLauncherTests
                 PostUrlBase = "https://twitter.com/intent/tweet"
             }
         };
-        
+
         var mockBrowserLauncher = new Mock<IBrowserLauncher>();
         mockBrowserLauncher.Setup(x => x.OpenAsync(It.IsAny<string>()))
             .ReturnsAsync(BrowserLaunchResult.Success());
-        
+
         var launcher = new XPostLauncher(mockBrowserLauncher.Object);
 
         // Act
@@ -59,7 +61,13 @@ public class XPostLauncherTests
 
         // Assert
         Assert.True(result.IsSuccess);
-        mockBrowserLauncher.Verify(x => x.OpenAsync(It.IsAny<string>()), Times.Once);
+        mockBrowserLauncher.Verify(x => x.OpenAsync(
+            It.Is<string>(url =>
+                url.Contains("%23") &&    // # → %23
+                url.Contains("%40") &&    // @ → %40
+                !url.Contains("#") &&
+                !url.Contains("@"))),
+            Times.Once);
     }
 
     [Fact]

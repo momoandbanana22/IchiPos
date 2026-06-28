@@ -93,6 +93,59 @@ public class MisskeyPosterTests
     }
 
     [Fact]
+    public async Task 正常系_画像付き投稿でfileIdsがPostNoteに正しく渡される()
+    {
+        // Arrange
+        // 画像アップロードで得た FileId が集約され PostNoteAsync に渡されることを検証する。
+        // 既存の「画像付き投稿」テストは UploadImageAsync の呼び出し回数しか見ておらず、
+        // fileIds が空リストでも通過してしまう。
+        var content = "テスト投稿";
+        var imagePaths = new List<string> { "image1.png", "image2.jpg" };
+        var config = new AppConfig
+        {
+            Misskey = new MisskeyConfig
+            {
+                InstanceUrl = "https://misskey.example.com",
+                AccessToken = "test_token",
+                Visibility = "public"
+            }
+        };
+
+        var mockHttpClient = new Mock<IMisskeyHttpClient>();
+        mockHttpClient.SetupSequence(x => x.UploadImageAsync(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>()))
+            .ReturnsAsync(MisskeyUploadResult.Success("file_id_1"))
+            .ReturnsAsync(MisskeyUploadResult.Success("file_id_2"));
+
+        mockHttpClient.Setup(x => x.PostNoteAsync(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<List<string>>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
+
+        var poster = new MisskeyPoster(mockHttpClient.Object);
+
+        // Act
+        await poster.PostAsync(content, imagePaths, config);
+
+        // Assert
+        mockHttpClient.Verify(x => x.PostNoteAsync(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.Is<List<string>>(ids =>
+                ids.Count == 2 &&
+                ids.Contains("file_id_1") &&
+                ids.Contains("file_id_2"))),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task 異常系_画像アップロード失敗()
     {
         // Arrange
