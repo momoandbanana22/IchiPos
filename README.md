@@ -43,6 +43,8 @@ dotnet build -c Release
 IchiPos.Core\bin\Release\net10.0\IchiPos.exe
 ```
 
+実行時は `config/` ディレクトリを `IchiPos.exe` と同じ場所に置いてください。
+
 ## 設定ファイル
 
 設定ファイルは YAML 形式で、実行ファイルと同じディレクトリの `./config/config.yaml` に配置します。
