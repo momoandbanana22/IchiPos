@@ -9,14 +9,9 @@ public class CommandLineParser : ICommandLineParser
 {
     public ParseResult Parse(string[] args)
     {
-        if (args.Length == 0)
-        {
-            return ParseResult.Failure("contentが指定されていません");
-        }
-
-        var content = args[0];
+        var contents = new List<string>();
         string? imagePath = null;
-        int index = 1;
+        int index = 0;
 
         while (index < args.Length)
         {
@@ -25,22 +20,26 @@ public class CommandLineParser : ICommandLineParser
             if (arg == "--image-path")
             {
                 if (index + 1 >= args.Length)
-                {
                     return ParseResult.Failure("--image-path の後にフォルダパスが指定されていません");
-                }
                 imagePath = args[index + 1];
                 index += 2;
             }
-            else if (!arg.StartsWith("--"))
-            {
-                return ParseResult.Failure("contentが複数指定されています");
-            }
-            else
+            else if (arg.StartsWith("--"))
             {
                 return ParseResult.Failure($"未定義のオプション: {arg}");
             }
+            else
+            {
+                contents.Add(arg);
+                index++;
+            }
         }
 
-        return ParseResult.Success(content, imagePath);
+        if (contents.Count == 0)
+            return ParseResult.Failure("contentが指定されていません");
+        if (contents.Count > 1)
+            return ParseResult.Failure("contentが複数指定されています");
+
+        return ParseResult.Success(contents[0], imagePath);
     }
 }

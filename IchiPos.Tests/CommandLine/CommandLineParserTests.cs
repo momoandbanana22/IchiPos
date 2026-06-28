@@ -100,6 +100,24 @@ public class CommandLineParserTests
     }
 
     [Fact]
+    public void 正常系_オプションをcontentより前に指定できる()
+    {
+        // Arrange
+        // IchiPos.exe --image-path ./pics "content" のようにオプションが先でも動作すること。
+        // 現在は args[0] を無条件に content とみなすため、このケースで失敗する。
+        var args = new[] { "--image-path", @"C:\images", "hello" };
+        var parser = new CommandLineParser();
+
+        // Act
+        var result = parser.Parse(args);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal("hello", result.Content);
+        Assert.Equal(@"C:\images", result.ImagePath);
+    }
+
+    [Fact]
     public void 異常系_imagePathのみ指定()
     {
         // Arrange
