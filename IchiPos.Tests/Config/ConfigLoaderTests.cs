@@ -6,6 +6,36 @@ namespace IchiPos.Tests.Config;
 public class ConfigLoaderTests
 {
     [Fact]
+    public void 正常系_同梱のconfig_yaml_exampleがそのままパースできる()
+    {
+        // Arrange
+        // config/config.yaml.example はユーザーが実際にコピーして使うファイル。
+        // スキーマとずれていないかをここで自動検証する（手動確認に頼らない）。
+        var exampleContent = File.ReadAllText(GetConfigYamlExamplePath());
+        var testDir = CreateConfigDir(exampleContent);
+
+        // Act
+        var result = new ConfigLoader().Load(testDir);
+
+        // Assert
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.NotNull(result.Config);
+        Assert.False(result.Config.X.Enabled);
+        Assert.False(result.Config.Mixi2.Enabled);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    private static string GetConfigYamlExamplePath(
+        [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "")
+    {
+        // このファイルは IchiPos.Tests/Config/ConfigLoaderTests.cs にあるため、2階層上がリポジトリルート。
+        var repoRoot = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourceFilePath)!, "..", ".."));
+        return Path.Combine(repoRoot, "config", "config.yaml.example");
+    }
+
+    [Fact]
     public void 正常系_設定ファイルを読み込む()
     {
         // Arrange
