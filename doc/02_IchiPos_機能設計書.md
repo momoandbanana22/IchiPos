@@ -961,7 +961,7 @@ Misskey 投稿成功後にサブ投稿先（MIXI2、X）の一部または全部
 ### 4. 出力例
 
 ```text
-IchiPos 1.1.0
+IchiPos 1.1.1
 ```
 
 ***
