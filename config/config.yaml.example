@@ -9,9 +9,22 @@ misskey:
 x:
   # X の投稿 Intent URL（変更不要）
   post_url_base: https://twitter.com/intent/tweet
+  # X をサブ投稿先として有効にするかどうか（デフォルト: false）
+  enabled: false
+
+mixi2:
+  # MIXI2 をサブ投稿先として有効にするかどうか（デフォルト: false）
+  enabled: false
+  # mixi2 Developer Platform で発行したアプリのクライアント情報
+  client_id: YOUR_CLIENT_ID_HERE
+  client_secret: YOUR_CLIENT_SECRET_HERE
+  # アクセストークン（OAuth 2.0）
+  access_token: YOUR_MIXI2_ACCESS_TOKEN_HERE
 
 limits:
   # Misskey の文字数上限（インスタンスの設定に合わせる）
   misskey_max_length: 5000
   # X の文字数上限
   x_max_length: 280
+  # MIXI2 の文字数上限（mixi2 API仕様上の制限値は未確認。判明次第調整してください）
+  mixi2_max_length: 280

@@ -16,7 +16,8 @@ public class XPostLauncherTests
         {
             X = new XConfig
             {
-                PostUrlBase = "https://twitter.com/intent/tweet"
+                PostUrlBase = "https://twitter.com/intent/tweet",
+                Enabled = true
             }
         };
         
@@ -46,7 +47,8 @@ public class XPostLauncherTests
         {
             X = new XConfig
             {
-                PostUrlBase = "https://twitter.com/intent/tweet"
+                PostUrlBase = "https://twitter.com/intent/tweet",
+                Enabled = true
             }
         };
 
@@ -79,7 +81,7 @@ public class XPostLauncherTests
         var content = "テスト 投稿";
         var config = new AppConfig
         {
-            X = new XConfig { PostUrlBase = "https://twitter.com/intent/tweet" }
+            X = new XConfig { PostUrlBase = "https://twitter.com/intent/tweet", Enabled = true }
         };
 
         var mockBrowserLauncher = new Mock<IBrowserLauncher>();
@@ -97,6 +99,32 @@ public class XPostLauncherTests
     }
 
     [Fact]
+    public async Task 正常系_Xが無効な場合はスキップする()
+    {
+        // Arrange
+        var content = "テスト投稿";
+        var config = new AppConfig
+        {
+            X = new XConfig
+            {
+                PostUrlBase = "https://twitter.com/intent/tweet",
+                Enabled = false
+            }
+        };
+
+        var mockBrowserLauncher = new Mock<IBrowserLauncher>();
+        var launcher = new XPostLauncher(mockBrowserLauncher.Object);
+
+        // Act
+        var result = await launcher.LaunchAsync(content, config);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.True(result.IsSkipped);
+        mockBrowserLauncher.Verify(x => x.OpenAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
     public async Task 異常系_ブラウザ起動失敗()
     {
         // Arrange
@@ -105,7 +133,8 @@ public class XPostLauncherTests
         {
             X = new XConfig
             {
-                PostUrlBase = "https://twitter.com/intent/tweet"
+                PostUrlBase = "https://twitter.com/intent/tweet",
+                Enabled = true
             }
         };
         

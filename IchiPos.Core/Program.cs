@@ -12,6 +12,9 @@ var httpClient = new HttpClient();
 var misskeyHttpClient = new MisskeyHttpClient(httpClient);
 var processStarter = new SystemProcessStarter();
 var browserLauncher = new BrowserLauncher(processStarter);
+var mixi2Poster = new Mixi2Poster(new Mixi2ApiClient());
+var xPostLauncher = new XPostLauncher(browserLauncher);
+var postDestinationRunner = new PostDestinationRunner(mixi2Poster, xPostLauncher);
 
 var outputWriter = new OutputWriter();
 var app = new IchiPosApplication(
@@ -21,7 +24,7 @@ var app = new IchiPosApplication(
     new ImageValidator(),
     new PrePostValidator(),
     new MisskeyPoster(misskeyHttpClient),
-    new XPostLauncher(browserLauncher),
+    postDestinationRunner,
     outputWriter,
     new WindowsClipboardService(),
     new ImageCleanupService(new ConsoleUserPrompt(), outputWriter));

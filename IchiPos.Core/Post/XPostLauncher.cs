@@ -18,6 +18,11 @@ public class XPostLauncher : IXPostLauncher
 
     public async Task<XPostLaunchResult> LaunchAsync(string content, AppConfig config)
     {
+        if (!config.X.Enabled)
+        {
+            return XPostLaunchResult.Skipped();
+        }
+
         // URLエンコード（スペースを %20 にするため EscapeDataString を使用）
         var encodedContent = Uri.EscapeDataString(content);
         

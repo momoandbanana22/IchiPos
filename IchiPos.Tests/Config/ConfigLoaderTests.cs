@@ -48,6 +48,181 @@ limits:
     }
 
     [Fact]
+    public void 正常系_MIXI2とXの有効設定を読み込む()
+    {
+        // Arrange
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+  visibility: public
+x:
+  post_url_base: https://twitter.com/intent/tweet
+  enabled: true
+mixi2:
+  enabled: true
+  client_id: test_client_id
+  client_secret: test_client_secret
+  access_token: test_mixi2_token
+limits:
+  mixi2_max_length: 300
+");
+        var loader = new ConfigLoader();
+
+        // Act
+        var result = loader.Load(testDir);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Config);
+        Assert.True(result.Config.X.Enabled);
+        Assert.True(result.Config.Mixi2.Enabled);
+        Assert.Equal("test_client_id", result.Config.Mixi2.ClientId);
+        Assert.Equal("test_client_secret", result.Config.Mixi2.ClientSecret);
+        Assert.Equal("test_mixi2_token", result.Config.Mixi2.AccessToken);
+        Assert.Equal(300, result.Config.Limits.Mixi2MaxLength);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 正常系_MIXI2とXの有効設定が未指定の場合はデフォルトで無効()
+    {
+        // Arrange
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+  visibility: public
+x:
+  post_url_base: https://twitter.com/intent/tweet
+");
+        var loader = new ConfigLoader();
+
+        // Act
+        var result = loader.Load(testDir);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Config);
+        Assert.False(result.Config.X.Enabled);
+        Assert.False(result.Config.Mixi2.Enabled);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 異常系_MIXI2が有効なのにClientIdが未設定の場合はエラーを返す()
+    {
+        // Arrange
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+  visibility: public
+x:
+  post_url_base: https://twitter.com/intent/tweet
+mixi2:
+  enabled: true
+  client_id: """"
+  client_secret: test_client_secret
+  access_token: test_mixi2_token
+");
+        // Act
+        var result = new ConfigLoader().Load(testDir);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 異常系_MIXI2が有効なのにClientSecretが未設定の場合はエラーを返す()
+    {
+        // Arrange
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+  visibility: public
+x:
+  post_url_base: https://twitter.com/intent/tweet
+mixi2:
+  enabled: true
+  client_id: test_client_id
+  client_secret: """"
+  access_token: test_mixi2_token
+");
+        // Act
+        var result = new ConfigLoader().Load(testDir);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 異常系_MIXI2が有効なのにAccessTokenが未設定の場合はエラーを返す()
+    {
+        // Arrange
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+  visibility: public
+x:
+  post_url_base: https://twitter.com/intent/tweet
+mixi2:
+  enabled: true
+  client_id: test_client_id
+  client_secret: test_client_secret
+  access_token: """"
+");
+        // Act
+        var result = new ConfigLoader().Load(testDir);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 正常系_MIXI2が無効な場合はMIXI2の認証情報未設定でもエラーにならない()
+    {
+        // Arrange
+        // MIXI2 はデフォルト無効。無効なユーザーに認証情報の入力を強制しない。
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+  visibility: public
+x:
+  post_url_base: https://twitter.com/intent/tweet
+mixi2:
+  enabled: false
+");
+        // Act
+        var result = new ConfigLoader().Load(testDir);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
     public void 異常系_設定ファイルが存在しない()
     {
         // Arrange

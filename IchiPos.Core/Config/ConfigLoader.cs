@@ -40,6 +40,16 @@ public class ConfigLoader : IConfigLoader
             if (string.IsNullOrWhiteSpace(config.X.PostUrlBase))
                 return ConfigLoadResult.Failure("設定 x.post_url_base が設定されていません");
 
+            if (config.Mixi2.Enabled)
+            {
+                if (string.IsNullOrWhiteSpace(config.Mixi2.ClientId))
+                    return ConfigLoadResult.Failure("設定 mixi2.client_id が設定されていません");
+                if (string.IsNullOrWhiteSpace(config.Mixi2.ClientSecret))
+                    return ConfigLoadResult.Failure("設定 mixi2.client_secret が設定されていません");
+                if (string.IsNullOrWhiteSpace(config.Mixi2.AccessToken))
+                    return ConfigLoadResult.Failure("設定 mixi2.access_token が設定されていません");
+            }
+
             return ConfigLoadResult.Success(config);
         }
         catch (Exception ex)
