@@ -1,3 +1,4 @@
+using IchiPos;
 using IchiPos.Application;
 using IchiPos.CommandLine;
 using IchiPos.Config;
@@ -296,7 +297,7 @@ public class ApplicationTests
         var result = await app.RunAsync(args, config);
 
         Assert.Equal(0, result);
-        mockOutput.Verify(x => x.WriteInfo(It.Is<string>(s => s.Contains("1.0.1"))), Times.Once);
+        mockOutput.Verify(x => x.WriteInfo(It.Is<string>(s => s.Contains(AppVersion.Current))), Times.Once);
         mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
     }
 
