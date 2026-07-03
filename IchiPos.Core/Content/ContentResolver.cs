@@ -8,10 +8,12 @@ public interface IContentResolver
 public class ContentResolver : IContentResolver
 {
     private readonly ITextFileReader _textFileReader;
+    private readonly IDatePlaceholderReplacer _datePlaceholderReplacer;
 
-    public ContentResolver(ITextFileReader textFileReader)
+    public ContentResolver(ITextFileReader textFileReader, IDatePlaceholderReplacer datePlaceholderReplacer)
     {
         _textFileReader = textFileReader;
+        _datePlaceholderReplacer = datePlaceholderReplacer;
     }
 
     public async Task<ContentResolveResult> ResolveAsync(string content)
@@ -24,11 +26,11 @@ public class ContentResolver : IContentResolver
             {
                 return ContentResolveResult.Failure("ファイルが存在しません");
             }
-            
+
             var result = await _textFileReader.ReadAsync(content);
             if (result.IsSuccess)
             {
-                return ContentResolveResult.Success(result.Content!);
+                return ContentResolveResult.Success(_datePlaceholderReplacer.Replace(result.Content!));
             }
             else
             {
@@ -37,6 +39,6 @@ public class ContentResolver : IContentResolver
         }
 
         // 文字列として扱う
-        return ContentResolveResult.Success(content);
+        return ContentResolveResult.Success(_datePlaceholderReplacer.Replace(content));
     }
 }
