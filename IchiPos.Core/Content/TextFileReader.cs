@@ -33,12 +33,28 @@ public class TextFileReader : ITextFileReader
 
             var contentBytes = bomLength > 0 ? bytes[bomLength..] : bytes;
             var content = encoding.GetString(contentBytes);
+            content = RemoveTrailingEolMarker(content);
             return TextFileReadResult.Success(content);
         }
         catch (Exception ex)
         {
             return TextFileReadResult.Failure($"ファイルの読み込みに失敗しました: {ex.Message}");
         }
+    }
+
+    private static string RemoveTrailingEolMarker(string content)
+    {
+        // テキストファイルの終端記号（EOF改行）は本文ではないため1つだけ除去する。
+        // ユーザーが意図して追加した空行やスペースはそのまま残す。
+        if (content.EndsWith("\r\n"))
+        {
+            return content[..^2];
+        }
+        if (content.EndsWith("\n") || content.EndsWith("\r"))
+        {
+            return content[..^1];
+        }
+        return content;
     }
 
     private (Encoding? encoding, int bomLength) DetectEncoding(byte[] bytes)

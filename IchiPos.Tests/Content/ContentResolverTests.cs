@@ -24,6 +24,45 @@ public class ContentResolverTests
     }
 
     [Fact]
+    public async Task 正常系_文字列を指定_末尾に改行があってもそのまま保持される()
+    {
+        // Arrange
+        var content = "hello\n";
+        var mockTextFileReader = new Mock<ITextFileReader>();
+        var resolver = new ContentResolver(mockTextFileReader.Object);
+
+        // Act
+        var result = await resolver.ResolveAsync(content);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(content, result.Content);
+        mockTextFileReader.Verify(x => x.ReadAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task 正常系_存在するtxtファイルを指定_実際のTextFileReaderで末尾改行が除去される()
+    {
+        // Arrange
+        var testDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(testDir);
+        var filePath = Path.Combine(testDir, "test.txt");
+        await File.WriteAllTextAsync(filePath, "ファイル内容\n", new System.Text.UTF8Encoding(false));
+
+        var resolver = new ContentResolver(new TextFileReader());
+
+        // Act
+        var result = await resolver.ResolveAsync(filePath);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal("ファイル内容", result.Content);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
     public async Task 正常系_存在するtxtファイルを指定()
     {
         // Arrange
