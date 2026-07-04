@@ -1,7 +1,7 @@
 <Window x:Class="IchiPos.Gui.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="IchiPos" Height="720" Width="560" MinHeight="600" MinWidth="440"
+        Title="IchiPos" Height="640" Width="560" MinHeight="600" MinWidth="440"
         Icon="/IchiPos;component/icon/IchiPos.ico">
     <Grid Margin="12">
         <Grid.RowDefinitions>
@@ -68,7 +68,7 @@
                 <Button DockPanel.Dock="Right" Content="ログをクリア" Command="{Binding ClearLogCommand}"
                         Padding="6,2" HorizontalAlignment="Right"/>
             </DockPanel>
-            <ListBox ItemsSource="{Binding LogEntries}" IsEnabled="True" MinHeight="150">
+            <ListBox ItemsSource="{Binding LogEntries}" IsEnabled="True" MinHeight="100" MaxHeight="180">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding Message}" TextWrapping="Wrap">
