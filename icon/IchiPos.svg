@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="220" fill="#1677F2"/>
+
+  <!-- Paper Plane -->
+  <path
+    d="
+      M250 500
+      L820 260
+      Q850 248 860 270
+      Q870 292 845 325
+      L600 760
+      Q585 785 560 775
+      Q535 765 535 735
+      L540 585
+      Z
+    "
+    fill="#FFFFFF"
+  />
+
+  <!-- Inner Fold -->
+  <path
+    d="
+      M535 585
+      L820 260
+      L470 525
+      Z
+    "
+    fill="#DCE8FF"
+  />
+</svg>

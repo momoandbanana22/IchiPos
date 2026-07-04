@@ -27,13 +27,22 @@ public class ApplicationTests
         Mock<IXPostLauncher> x,
         Mock<IOutputWriter> output,
         Mock<IClipboardService>? clipboard = null,
-        Mock<IImageCleanupService>? cleanup = null) =>
+        Mock<IImageCleanupService>? cleanup = null,
+        Mock<IDatePlaceholderReplacer>? datePlaceholder = null) =>
         new IchiPosApplication(
-            parser.Object, content.Object, folder.Object,
-            validator.Object, prePost.Object, misskey.Object,
+            parser.Object, content.Object, datePlaceholder?.Object ?? Mock.Of<IDatePlaceholderReplacer>(),
+            folder.Object, validator.Object, prePost.Object, misskey.Object,
             x.Object, output.Object,
             clipboard?.Object ?? Mock.Of<IClipboardService>(),
             cleanup?.Object ?? Mock.Of<IImageCleanupService>());
+
+    // GUI入力（RunAsync(content, imagePath, config)）のテストで使う、そのまま返す日付置換モック
+    private static Mock<IDatePlaceholderReplacer> PassthroughDatePlaceholder()
+    {
+        var mock = new Mock<IDatePlaceholderReplacer>();
+        mock.Setup(x => x.Replace(It.IsAny<string>())).Returns((string s) => s);
+        return mock;
+    }
 
     // ──────────────────────────────────────────────────────────────────
     // 正常系
@@ -316,7 +325,7 @@ public class ApplicationTests
         var mockOutput = new Mock<IOutputWriter>();
 
         var app = new IchiPosApplication(
-            mockParser.Object, Mock.Of<IContentResolver>(), Mock.Of<IImageFolderReader>(),
+            mockParser.Object, Mock.Of<IContentResolver>(), Mock.Of<IDatePlaceholderReplacer>(), Mock.Of<IImageFolderReader>(),
             Mock.Of<IImageValidator>(), Mock.Of<IPrePostValidator>(), Mock.Of<IMisskeyPoster>(),
             Mock.Of<IXPostLauncher>(), mockOutput.Object,
             Mock.Of<IClipboardService>(), Mock.Of<IImageCleanupService>());
@@ -341,7 +350,7 @@ public class ApplicationTests
         var mockOutput = new Mock<IOutputWriter>();
 
         var app = new IchiPosApplication(
-            mockParser.Object, mockContent.Object, Mock.Of<IImageFolderReader>(),
+            mockParser.Object, mockContent.Object, Mock.Of<IDatePlaceholderReplacer>(), Mock.Of<IImageFolderReader>(),
             Mock.Of<IImageValidator>(), Mock.Of<IPrePostValidator>(), mockMisskey.Object,
             Mock.Of<IXPostLauncher>(), mockOutput.Object,
             Mock.Of<IClipboardService>(), Mock.Of<IImageCleanupService>());
@@ -369,7 +378,7 @@ public class ApplicationTests
         var mockOutput = new Mock<IOutputWriter>();
 
         var app = new IchiPosApplication(
-            mockParser.Object, mockContent.Object, mockFolder.Object,
+            mockParser.Object, mockContent.Object, Mock.Of<IDatePlaceholderReplacer>(), mockFolder.Object,
             Mock.Of<IImageValidator>(), Mock.Of<IPrePostValidator>(), mockMisskey.Object,
             Mock.Of<IXPostLauncher>(), mockOutput.Object,
             Mock.Of<IClipboardService>(), Mock.Of<IImageCleanupService>());
@@ -400,7 +409,7 @@ public class ApplicationTests
         var mockOutput = new Mock<IOutputWriter>();
 
         var app = new IchiPosApplication(
-            mockParser.Object, mockContent.Object, mockFolder.Object,
+            mockParser.Object, mockContent.Object, Mock.Of<IDatePlaceholderReplacer>(), mockFolder.Object,
             mockValidator.Object, Mock.Of<IPrePostValidator>(), mockMisskey.Object,
             Mock.Of<IXPostLauncher>(), mockOutput.Object,
             Mock.Of<IClipboardService>(), Mock.Of<IImageCleanupService>());
@@ -434,7 +443,7 @@ public class ApplicationTests
         var mockOutput = new Mock<IOutputWriter>();
 
         var app = new IchiPosApplication(
-            mockParser.Object, mockContent.Object, mockFolder.Object,
+            mockParser.Object, mockContent.Object, Mock.Of<IDatePlaceholderReplacer>(), mockFolder.Object,
             mockValidator.Object, mockPrePost.Object, mockMisskey.Object,
             Mock.Of<IXPostLauncher>(), mockOutput.Object,
             Mock.Of<IClipboardService>(), Mock.Of<IImageCleanupService>());
@@ -474,12 +483,178 @@ public class ApplicationTests
         var mockX = new Mock<IXPostLauncher>();
 
         var app = new IchiPosApplication(
-            mockParser.Object, mockContent.Object, mockFolder.Object,
+            mockParser.Object, mockContent.Object, Mock.Of<IDatePlaceholderReplacer>(), mockFolder.Object,
             mockValidator.Object, mockPrePost.Object, mockMisskey.Object,
             mockX.Object, Mock.Of<IOutputWriter>(),
             Mock.Of<IClipboardService>(), Mock.Of<IImageCleanupService>());
 
         var result = await app.RunAsync(args, config);
+
+        Assert.NotEqual(0, result);
+        mockX.Verify(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>()), Times.Never);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // GUI入力（RunAsync(content, imagePath, config)、04書 G-005）
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GUI入力_正常系_文字列を直接投稿する()
+    {
+        var config = new AppConfig
+        {
+            Misskey = new MisskeyConfig { InstanceUrl = "https://misskey.example.com", AccessToken = "test_token", Visibility = "public" },
+            X = new XConfig { PostUrlBase = "https://twitter.com/intent/tweet" },
+            Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 }
+        };
+
+        var mockContent = new Mock<IContentResolver>();
+        var mockFolder = new Mock<IImageFolderReader>();
+        mockFolder.Setup(x => x.Read(null)).Returns(ImageFolderReadResult.Success(new List<string>()));
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config)).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync("hello", config)).ReturnsAsync(XPostLaunchResult.Success());
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), mockContent, mockFolder, mockValidator,
+            mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
+            datePlaceholder: PassthroughDatePlaceholder());
+
+        var result = await app.RunAsync("hello", null, config);
+
+        Assert.Equal(0, result);
+        mockMisskey.Verify(x => x.PostAsync("hello", It.IsAny<List<string>>(), config), Times.Once);
+        mockX.Verify(x => x.LaunchAsync("hello", config), Times.Once);
+    }
+
+    [Fact]
+    public async Task GUI入力_正常系_txt拡張子の文字列でもファイルとして扱わない()
+    {
+        // 04書 G-005 第3節: GUI入力は常に文字列として扱い、.txt判定（F-002）は行わない。
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+
+        var mockContent = new Mock<IContentResolver>();
+        var mockFolder = new Mock<IImageFolderReader>();
+        mockFolder.Setup(x => x.Read(null)).Returns(ImageFolderReadResult.Success(new List<string>()));
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate("hello.txt", It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync("hello.txt", It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), mockContent, mockFolder, mockValidator,
+            mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
+            datePlaceholder: PassthroughDatePlaceholder());
+
+        var result = await app.RunAsync("hello.txt", null, config);
+
+        Assert.Equal(0, result);
+        mockContent.Verify(x => x.ResolveAsync(It.IsAny<string>()), Times.Never);
+        mockMisskey.Verify(x => x.PostAsync("hello.txt", It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GUI入力_正常系_日付プレースホルダを投稿実行時に置換する()
+    {
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+
+        var mockFolder = new Mock<IImageFolderReader>();
+        mockFolder.Setup(x => x.Read(null)).Returns(ImageFolderReadResult.Success(new List<string>()));
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate("今日は2026/07/04です", It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync("今日は2026/07/04です", It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
+
+        var mockDatePlaceholder = new Mock<IDatePlaceholderReplacer>();
+        mockDatePlaceholder.Setup(x => x.Replace("今日は{date}です")).Returns("今日は2026/07/04です");
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), mockFolder, mockValidator,
+            mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
+            datePlaceholder: mockDatePlaceholder);
+
+        var result = await app.RunAsync("今日は{date}です", null, config);
+
+        Assert.Equal(0, result);
+        mockMisskey.Verify(x => x.PostAsync("今日は2026/07/04です", It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GUI入力_異常系_投稿前チェック失敗時はMisskey投稿を開始しない()
+    {
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+
+        var mockFolder = new Mock<IImageFolderReader>();
+        mockFolder.Setup(x => x.Read(null)).Returns(ImageFolderReadResult.Success(new List<string>()));
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Failure("テキストが空です"));
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        var mockOutput = new Mock<IOutputWriter>();
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), mockFolder, mockValidator,
+            mockPrePost, mockMisskey, new Mock<IXPostLauncher>(), mockOutput,
+            datePlaceholder: PassthroughDatePlaceholder());
+
+        var result = await app.RunAsync("", null, config);
+
+        Assert.Equal(1, result);
+        mockOutput.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GUI入力_異常系_Misskey投稿失敗時はX投稿画面を開かない()
+    {
+        var config = new AppConfig
+        {
+            Misskey = new MisskeyConfig { InstanceUrl = "https://misskey.example.com", AccessToken = "test_token", Visibility = "public" },
+            X = new XConfig { PostUrlBase = "https://twitter.com/intent/tweet" },
+            Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 }
+        };
+
+        var mockFolder = new Mock<IImageFolderReader>();
+        mockFolder.Setup(x => x.Read(null)).Returns(ImageFolderReadResult.Success(new List<string>()));
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config))
+            .ReturnsAsync(MisskeyPostResult.Failure("Misskey投稿失敗"));
+        var mockX = new Mock<IXPostLauncher>();
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), mockFolder, mockValidator,
+            mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
+            datePlaceholder: PassthroughDatePlaceholder());
+
+        var result = await app.RunAsync("hello", null, config);
 
         Assert.NotEqual(0, result);
         mockX.Verify(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>()), Times.Never);

@@ -16,6 +16,7 @@ description: プロジェクトルール
    - 基本仕様書（`doc/01_IchiPos_基本仕様書.md`）を参照
    - 機能設計書（`doc/02_IchiPos_機能設計書.md`）を参照
    - 構造設計書（`doc/03_IchiPos_構造設計書.md`）を参照
+   - GUI仕様書（`doc/04_IchiPos_GUI仕様書.md`）を参照（GUI関連の実装時）
    - ドキュメントに記載されていない実装は行わない
 
 ## 実装前の確認
