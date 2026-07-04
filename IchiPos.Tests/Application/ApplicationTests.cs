@@ -148,7 +148,7 @@ public class ApplicationTests
     }
 
     [Fact]
-    public async Task 正常系_X投稿成功後に1枚目の画像をクリップボードにコピーする()
+    public async Task 正常系_X投稿成功後に画像をクリップボードにコピーする()
     {
         var args = new[] { "hello", "--image-path", @"C:\images" };
         var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
@@ -177,7 +177,43 @@ public class ApplicationTests
             new Mock<IOutputWriter>(), mockClipboard);
         await app.RunAsync(args, config);
 
-        mockClipboard.Verify(x => x.SetImage(@"C:\images\a.png"), Times.Once);
+        mockClipboard.Verify(x => x.SetImages(
+            It.Is<IReadOnlyList<string>>(paths => paths.SequenceEqual(validPaths))), Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_添付画像が4枚を超える場合は先頭4枚のみクリップボードにコピーする()
+    {
+        var args = new[] { "hello", "--image-path", @"C:\images" };
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+
+        var mockParser = new Mock<ICommandLineParser>();
+        mockParser.Setup(x => x.Parse(args)).Returns(ParseResult.Success("hello", @"C:\images"));
+        var mockContent = new Mock<IContentResolver>();
+        mockContent.Setup(x => x.ResolveAsync("hello")).ReturnsAsync(ContentResolveResult.Success("hello"));
+        var mockFolder = new Mock<IImageFolderReader>();
+        var fileNames = new List<string> { "a.png", "b.png", "c.png", "d.png", "e.png" };
+        mockFolder.Setup(x => x.Read(@"C:\images")).Returns(ImageFolderReadResult.Success(fileNames));
+        var validPaths = fileNames.Select(f => $@"C:\images\{f}").ToList();
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(validPaths));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
+        var mockClipboard = new Mock<IClipboardService>();
+
+        var app = BuildApp(mockParser, mockContent, mockFolder, mockValidator, mockPrePost, mockMisskey, mockX,
+            new Mock<IOutputWriter>(), mockClipboard);
+        await app.RunAsync(args, config);
+
+        mockClipboard.Verify(x => x.SetImages(
+            It.Is<IReadOnlyList<string>>(paths => paths.SequenceEqual(validPaths.Take(4)))), Times.Once);
     }
 
     [Fact]
@@ -209,7 +245,7 @@ public class ApplicationTests
             new Mock<IOutputWriter>(), mockClipboard);
         await app.RunAsync(args, config);
 
-        mockClipboard.Verify(x => x.SetImage(It.IsAny<string>()), Times.Never);
+        mockClipboard.Verify(x => x.SetImages(It.IsAny<IReadOnlyList<string>>()), Times.Never);
     }
 
     [Fact]

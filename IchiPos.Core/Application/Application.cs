@@ -20,6 +20,9 @@ public interface IIchiPosApplication
 
 public class IchiPosApplication : IIchiPosApplication
 {
+    /// <summary>Xが1投稿に添付できる画像の最大枚数。</summary>
+    private const int XMaxImageAttachCount = 4;
+
     private readonly ICommandLineParser _commandLineParser;
     private readonly IContentResolver _contentResolver;
     private readonly IDatePlaceholderReplacer _datePlaceholderReplacer;
@@ -176,15 +179,17 @@ public class IchiPosApplication : IIchiPosApplication
         _outputWriter.WriteSuccess("X投稿画面起動成功");
 
         // X Intent URL では画像を渡せないため、ユーザーが Ctrl+V で貼り付けられるよう
-        // 1枚目の画像をクリップボードにコピーする。
+        // 画像をファイルドロップリストとしてクリップボードにコピーする（X は最大4枚まで添付可能）。
         if (validImagePaths.Count > 0)
         {
-            _clipboardService.SetImage(validImagePaths[0]);
+            var copiedPaths = validImagePaths.Take(XMaxImageAttachCount).ToList();
+            _clipboardService.SetImages(copiedPaths);
             var total = validImagePaths.Count;
-            if (total == 1)
-                _outputWriter.WriteInfo("画像をクリップボードにコピーしました。X下書き画面で Ctrl+V で貼り付けてください。");
+            var copiedCount = copiedPaths.Count;
+            if (total <= copiedCount)
+                _outputWriter.WriteInfo($"画像をクリップボードにコピーしました（全{total}枚）。X下書き画面で Ctrl+V で貼り付けてください。");
             else
-                _outputWriter.WriteInfo($"1枚目の画像をクリップボードにコピーしました（全{total}枚）。X下書き画面で Ctrl+V で貼り付けてください。残り{total - 1}枚は手動で添付してください。");
+                _outputWriter.WriteInfo($"先頭{copiedCount}枚の画像をクリップボードにコピーしました（全{total}枚）。X下書き画面で Ctrl+V で貼り付けてください。残り{total - copiedCount}枚は手動で添付してください。");
 
             await _imageCleanupService.RunAsync(validImagePaths);
         }
