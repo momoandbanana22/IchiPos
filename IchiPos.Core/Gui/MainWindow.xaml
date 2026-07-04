@@ -46,6 +46,9 @@
                         Padding="8,4" Margin="4,0,0,0" IsEnabled="{Binding IsNotBusy}"/>
                 <TextBox Text="{Binding ImageFolderPath, Mode=OneWay}" IsReadOnly="True"/>
             </DockPanel>
+            <!-- P-12: クリップボード画像貼り付け機能(G-010)の案内 -->
+            <TextBlock Text="画像をコピーして Ctrl+V で貼り付けることもできます" Margin="0,4,0,0"
+                       FontSize="11" Foreground="Gray"/>
         </StackPanel>
 
         <!-- P-07: 投稿後に画像を削除する -->
