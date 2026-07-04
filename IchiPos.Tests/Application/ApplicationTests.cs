@@ -351,6 +351,73 @@ public class ApplicationTests
     // ──────────────────────────────────────────────────────────────────
 
     [Fact]
+    public async Task 正常系_CLI入力_投稿テキスト末尾の空白改行がトリムされて投稿される()
+    {
+        // F-006: 投稿直前に文末の空白・改行だけを除去する（自動トリミング対象外の例外）。
+        var args = new[] { "hello" };
+        var config = new AppConfig
+        {
+            Misskey = new MisskeyConfig { InstanceUrl = "https://misskey.example.com", AccessToken = "test_token", Visibility = "public" },
+            X = new XConfig { PostUrlBase = "https://twitter.com/intent/tweet" },
+            Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 }
+        };
+
+        var mockParser = new Mock<ICommandLineParser>();
+        mockParser.Setup(x => x.Parse(args)).Returns(ParseResult.Success("hello", null));
+        var mockContent = new Mock<IContentResolver>();
+        mockContent.Setup(x => x.ResolveAsync("hello")).ReturnsAsync(ContentResolveResult.Success("hello \r\n"));
+        var mockFolder = new Mock<IImageFolderReader>();
+        mockFolder.Setup(x => x.Read(null)).Returns(ImageFolderReadResult.Success(new List<string>()));
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config)).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync("hello", config)).ReturnsAsync(XPostLaunchResult.Success());
+        var mockOutput = new Mock<IOutputWriter>();
+
+        var app = BuildApp(mockParser, mockContent, mockFolder, mockValidator, mockPrePost, mockMisskey, mockX, mockOutput);
+        var result = await app.RunAsync(args, config);
+
+        Assert.Equal(0, result);
+        mockMisskey.Verify(x => x.PostAsync("hello", It.IsAny<List<string>>(), config), Times.Once);
+        mockX.Verify(x => x.LaunchAsync("hello", config), Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_CLI入力_文頭の空白はトリムされない()
+    {
+        var args = new[] { "hello" };
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+
+        var mockParser = new Mock<ICommandLineParser>();
+        mockParser.Setup(x => x.Parse(args)).Returns(ParseResult.Success("hello", null));
+        var mockContent = new Mock<IContentResolver>();
+        mockContent.Setup(x => x.ResolveAsync("hello")).ReturnsAsync(ContentResolveResult.Success("  hello"));
+        var mockFolder = new Mock<IImageFolderReader>();
+        mockFolder.Setup(x => x.Read(null)).Returns(ImageFolderReadResult.Success(new List<string>()));
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate("  hello", It.IsAny<List<string>>(), It.IsAny<int>())).Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync("  hello", It.IsAny<List<string>>(), It.IsAny<AppConfig>())).ReturnsAsync(MisskeyPostResult.Success("note123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
+        var mockOutput = new Mock<IOutputWriter>();
+
+        var app = BuildApp(mockParser, mockContent, mockFolder, mockValidator, mockPrePost, mockMisskey, mockX, mockOutput);
+        var result = await app.RunAsync(args, config);
+
+        Assert.Equal(0, result);
+        mockMisskey.Verify(x => x.PostAsync("  hello", It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Once);
+    }
+
+    [Fact]
     public async Task 異常系_コマンドライン引数エラー()
     {
         var args = Array.Empty<string>();
@@ -661,6 +728,41 @@ public class ApplicationTests
         Assert.Equal(0, result);
         mockValidator.Verify(x => x.ValidateFiles(imagePaths), Times.Once);
         mockMisskey.Verify(x => x.PostAsync("hello", imagePaths, config), Times.Once);
+    }
+
+    [Fact]
+    public async Task GUI入力_正常系_テキストボックス直接入力の末尾改行がトリムされて投稿される()
+    {
+        // issue: X投稿画面の文末に余計な空白が入る問題（GUIテキストボックス直接入力・貼り付け経路）。
+        // F-006: 入力経路によらず投稿直前に文末の空白・改行だけを除去する。
+        var config = new AppConfig
+        {
+            Misskey = new MisskeyConfig { InstanceUrl = "https://misskey.example.com", AccessToken = "test_token", Visibility = "public" },
+            X = new XConfig { PostUrlBase = "https://twitter.com/intent/tweet" },
+            Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 }
+        };
+
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config)).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync("hello", config)).ReturnsAsync(XPostLaunchResult.Success());
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), new Mock<IImageFolderReader>(), mockValidator,
+            mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
+            datePlaceholder: PassthroughDatePlaceholder());
+
+        // WPFのマルチラインTextBoxで末尾でEnterを押した場合や、他アプリからの貼り付けを想定した末尾改行。
+        var result = await app.RunAsync("hello\r\n", Array.Empty<string>(), config);
+
+        Assert.Equal(0, result);
+        mockMisskey.Verify(x => x.PostAsync("hello", It.IsAny<List<string>>(), config), Times.Once);
+        mockX.Verify(x => x.LaunchAsync("hello", config), Times.Once);
     }
 
     [Fact]
