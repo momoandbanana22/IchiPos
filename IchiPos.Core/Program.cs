@@ -17,6 +17,7 @@ var outputWriter = new OutputWriter();
 var app = new IchiPosApplication(
     new CommandLineParser(),
     new ContentResolver(new TextFileReader(), new DatePlaceholderReplacer(TimeProvider.System)),
+    new DatePlaceholderReplacer(TimeProvider.System),
     new ImageFolderReader(),
     new ImageValidator(),
     new PrePostValidator(),

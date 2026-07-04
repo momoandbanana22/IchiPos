@@ -11,13 +11,18 @@ namespace IchiPos.Application;
 
 public interface IIchiPosApplication
 {
+    /// <summary>CLI入力受付（F-001）を経由する実行。コマンドライン引数を解析する。</summary>
     Task<int> RunAsync(string[] args, AppConfig config);
+
+    /// <summary>GUI入力受付（04書 G-005）を経由する実行。.txtファイル判定（F-002）は行わない。</summary>
+    Task<int> RunAsync(string content, string? imagePath, AppConfig config);
 }
 
 public class IchiPosApplication : IIchiPosApplication
 {
     private readonly ICommandLineParser _commandLineParser;
     private readonly IContentResolver _contentResolver;
+    private readonly IDatePlaceholderReplacer _datePlaceholderReplacer;
     private readonly IImageFolderReader _imageFolderReader;
     private readonly IImageValidator _imageValidator;
     private readonly IPrePostValidator _prePostValidator;
@@ -30,6 +35,7 @@ public class IchiPosApplication : IIchiPosApplication
     public IchiPosApplication(
         ICommandLineParser commandLineParser,
         IContentResolver contentResolver,
+        IDatePlaceholderReplacer datePlaceholderReplacer,
         IImageFolderReader imageFolderReader,
         IImageValidator imageValidator,
         IPrePostValidator prePostValidator,
@@ -41,6 +47,7 @@ public class IchiPosApplication : IIchiPosApplication
     {
         _commandLineParser = commandLineParser;
         _contentResolver = contentResolver;
+        _datePlaceholderReplacer = datePlaceholderReplacer;
         _imageFolderReader = imageFolderReader;
         _imageValidator = imageValidator;
         _prePostValidator = prePostValidator;
@@ -66,17 +73,32 @@ public class IchiPosApplication : IIchiPosApplication
             return 1;
         }
 
-        // 2. 投稿テキストを取得
+        // 2. 投稿テキストを取得（.txtファイル判定・日付埋め込みを含む。CLI固有の入力受付規則）
         var contentResult = await _contentResolver.ResolveAsync(parseResult.Content!);
         if (!contentResult.IsSuccess)
         {
             _outputWriter.WriteError($"投稿内容エラー: {contentResult.ErrorMessage}");
             return 1;
         }
-        _outputWriter.WriteInfo($"投稿テキストを取得しました（{contentResult.Content!.Length}文字）");
+
+        return await RunPostPipelineAsync(contentResult.Content!, parseResult.ImagePath, config);
+    }
+
+    public async Task<int> RunAsync(string content, string? imagePath, AppConfig config)
+    {
+        // GUI入力: .txtファイル判定（F-002）は行わず、常に文字列として扱う。
+        // 日付プレースホルダ置換（F-013）のみ、投稿実行時にCLIと同じ規則で適用する。
+        var replacedContent = _datePlaceholderReplacer.Replace(content);
+        return await RunPostPipelineAsync(replacedContent, imagePath, config);
+    }
+
+    /// <summary>画像一覧取得〜画像削除まで（F-004〜F-011）。CLI/GUI共通の投稿パイプライン。</summary>
+    private async Task<int> RunPostPipelineAsync(string content, string? imagePath, AppConfig config)
+    {
+        _outputWriter.WriteInfo($"投稿テキストを取得しました（{content.Length}文字）");
 
         // 3. 画像一覧を取得
-        var imageFolderResult = _imageFolderReader.Read(parseResult.ImagePath);
+        var imageFolderResult = _imageFolderReader.Read(imagePath);
         if (!imageFolderResult.IsSuccess)
         {
             _outputWriter.WriteError($"画像フォルダエラー: {imageFolderResult.ErrorMessage}");
@@ -85,7 +107,7 @@ public class IchiPosApplication : IIchiPosApplication
 
         // 4. 画像添付対象判定
         var imageValidationResult = _imageValidator.Validate(
-            parseResult.ImagePath ?? "",
+            imagePath ?? "",
             imageFolderResult.ImageFiles);
         if (!imageValidationResult.IsSuccess)
         {
@@ -97,7 +119,7 @@ public class IchiPosApplication : IIchiPosApplication
         // 5. 投稿前チェック
         var maxLength = Math.Min(config.Limits.MisskeyMaxLength, config.Limits.XMaxLength);
         var validationResult = _prePostValidator.Validate(
-            contentResult.Content!,
+            content,
             imageValidationResult.ValidImagePaths,
             maxLength);
         if (!validationResult.IsSuccess)
@@ -108,7 +130,7 @@ public class IchiPosApplication : IIchiPosApplication
 
         // 6. Misskeyに投稿
         var misskeyResult = await _misskeyPoster.PostAsync(
-            contentResult.Content!,
+            content,
             imageValidationResult.ValidImagePaths,
             config);
         if (!misskeyResult.IsSuccess)
@@ -120,7 +142,7 @@ public class IchiPosApplication : IIchiPosApplication
         _outputWriter.WriteSuccess($"Misskey投稿成功: {misskeyResult.NoteId}");
 
         // 7. X投稿画面を起動
-        var xResult = await _xPostLauncher.LaunchAsync(contentResult.Content!, config);
+        var xResult = await _xPostLauncher.LaunchAsync(content, config);
         if (!xResult.IsSuccess)
         {
             _outputWriter.WriteError($"X投稿準備エラー: {xResult.ErrorMessage}");
