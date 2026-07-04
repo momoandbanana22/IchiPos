@@ -45,8 +45,22 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public string Content
     {
         get => _content;
-        set => SetProperty(ref _content, value);
+        set
+        {
+            if (SetProperty(ref _content, value))
+            {
+                OnPropertyChanged(nameof(CharacterCountDisplay));
+            }
+        }
     }
+
+    /// <summary>
+    /// P-02: 文字数表示。{date}未置換の文字数をそのまま表示する目安表示であり、
+    /// 実際の上限チェックは投稿実行時に置換後のテキストに対して行う(04書 G-002 第5節)。
+    /// </summary>
+    public string CharacterCountDisplay => $"{Content.Length} / {MaxLength} 文字";
+
+    private int MaxLength => Math.Min(_config.Limits.MisskeyMaxLength, _config.Limits.XMaxLength);
 
     /// <summary>P-04: 画像フォルダパス。未選択の場合はnull。</summary>
     public string? ImageFolderPath
@@ -79,10 +93,14 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             if (SetProperty(ref _isBusy, value))
             {
+                OnPropertyChanged(nameof(IsNotBusy));
                 _postCommand.RaiseCanExecuteChanged();
             }
         }
     }
+
+    /// <summary>Viewの入力コントロールのIsEnabledバインディング用(!IsBusy)。</summary>
+    public bool IsNotBusy => !IsBusy;
 
     /// <summary>P-11: バージョン表示(04書 G-008)。</summary>
     public string VersionText => $"IchiPos {AppVersion.Current}";

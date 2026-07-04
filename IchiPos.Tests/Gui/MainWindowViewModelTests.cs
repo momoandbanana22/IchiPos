@@ -69,6 +69,55 @@ public class MainWindowViewModelTests
     }
 
     // ──────────────────────────────────────────────────────────────────
+    // 文字数表示(P-02, 04書 5.3節・G-002 第5節)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 正常系_文字数表示は現在の文字数と上限を表示する()
+    {
+        // config.Limitsの短い方(XMaxLength=280)を上限として表示する(F-006と同じ算出方法)
+        var vm = BuildViewModel();
+        vm.Content = "hello";
+
+        Assert.Equal("5 / 280 文字", vm.CharacterCountDisplay);
+    }
+
+    [Fact]
+    public void 正常系_Content変更時にCharacterCountDisplayのPropertyChangedが発火する()
+    {
+        var vm = BuildViewModel();
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.Content = "hello";
+
+        Assert.Contains(nameof(MainWindowViewModel.CharacterCountDisplay), raised);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // IsNotBusy(View側のIsEnabledバインディング用)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task 正常系_投稿中はIsNotBusyがfalseになる()
+    {
+        var tcs = new TaskCompletionSource<int>();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AppConfig>()))
+            .Returns(tcs.Task);
+        var vm = BuildViewModel(app: mockApp);
+        vm.Content = "hello";
+
+        var postTask = vm.PostAsync();
+        Assert.False(vm.IsNotBusy);
+
+        tcs.SetResult(0);
+        await postTask;
+
+        Assert.True(vm.IsNotBusy);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
     // 画像削除チェックボックスの有効/無効(04書 G-004 第4節)
     // ──────────────────────────────────────────────────────────────────
 
