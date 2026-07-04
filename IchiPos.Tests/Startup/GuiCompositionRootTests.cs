@@ -72,7 +72,6 @@ public class GuiCompositionRootTests
         Assert.Null(error);
         Assert.NotNull(viewModel);
         Assert.Equal(string.Empty, viewModel!.Content);
-        Assert.False(viewModel.DeleteImagesAfterPost);
     }
 
     [Fact]

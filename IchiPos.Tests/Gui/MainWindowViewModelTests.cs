@@ -1,7 +1,9 @@
+using System.Linq;
 using IchiPos.Application;
 using IchiPos.Config;
 using IchiPos.Content;
 using IchiPos.Gui;
+using IchiPos.Images;
 using IchiPos.Output;
 using Moq;
 using Xunit;
@@ -22,13 +24,15 @@ public class MainWindowViewModelTests
         Mock<ITextFileReader>? textFileReader = null,
         GuiOutputWriter? outputWriter = null,
         AppConfig? config = null,
-        Mock<IClipboardImageStore>? clipboardImageStore = null) =>
+        Mock<IClipboardImageStore>? clipboardImageStore = null,
+        Mock<IImageFolderReader>? imageFolderReader = null) =>
         new MainWindowViewModel(
             (app ?? new Mock<IIchiPosApplication>()).Object,
             config ?? ValidConfig(),
             (textFileReader ?? new Mock<ITextFileReader>()).Object,
             outputWriter ?? new GuiOutputWriter(),
-            (clipboardImageStore ?? new Mock<IClipboardImageStore>()).Object);
+            (clipboardImageStore ?? new Mock<IClipboardImageStore>()).Object,
+            (imageFolderReader ?? new Mock<IImageFolderReader>()).Object);
 
     // ──────────────────────────────────────────────────────────────────
     // 初期状態(04書 5.3節)
@@ -42,18 +46,10 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
-    public void 初期状態_画像フォルダパスは未設定()
+    public void 初期状態_添付画像はなし()
     {
         var vm = BuildViewModel();
-        Assert.Null(vm.ImageFolderPath);
-    }
-
-    [Fact]
-    public void 初期状態_画像削除チェックはオフ()
-    {
-        // 04書 G-004 第3節: 初期状態はオフ(削除しない)
-        var vm = BuildViewModel();
-        Assert.False(vm.DeleteImagesAfterPost);
+        Assert.Empty(vm.AttachedImages);
     }
 
     [Fact]
@@ -105,7 +101,7 @@ public class MainWindowViewModelTests
     {
         var tcs = new TaskCompletionSource<int>();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AppConfig>()))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
             .Returns(tcs.Task);
         var vm = BuildViewModel(app: mockApp);
         vm.Content = "hello";
@@ -117,52 +113,6 @@ public class MainWindowViewModelTests
         await postTask;
 
         Assert.True(vm.IsNotBusy);
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    // 画像削除チェックボックスの有効/無効(04書 G-004 第4節)
-    // ──────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public void 正常系_画像フォルダ未設定の場合は削除チェックボックスが無効()
-    {
-        var vm = BuildViewModel();
-        Assert.False(vm.IsDeleteCheckboxEnabled);
-    }
-
-    [Fact]
-    public void 正常系_画像フォルダ設定時は削除チェックボックスが有効()
-    {
-        var vm = BuildViewModel();
-        vm.ImageFolderPath = @"C:\images";
-        Assert.True(vm.IsDeleteCheckboxEnabled);
-    }
-
-    [Fact]
-    public void 正常系_ImageFolderPath変更時にIsDeleteCheckboxEnabledのPropertyChangedが発火する()
-    {
-        var vm = BuildViewModel();
-        var raised = new List<string?>();
-        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
-
-        vm.ImageFolderPath = @"C:\images";
-
-        Assert.Contains(nameof(MainWindowViewModel.IsDeleteCheckboxEnabled), raised);
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    // 画像フォルダのクリア(04書 G-003 第2節)
-    // ──────────────────────────────────────────────────────────────────
-
-    [Fact]
-    public void 正常系_ClearImageFolderCommandで画像フォルダパスを未設定に戻す()
-    {
-        var vm = BuildViewModel();
-        vm.ImageFolderPath = @"C:\images";
-
-        vm.ClearImageFolderCommand.Execute(null);
-
-        Assert.Null(vm.ImageFolderPath);
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -186,32 +136,34 @@ public class MainWindowViewModelTests
     // ──────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task 正常系_PostAsyncでApplication層に投稿内容と画像フォルダパスを渡す()
+    public async Task 正常系_PostAsyncでApplication層に投稿内容と添付画像パスの一覧を渡す()
     {
         var config = ValidConfig();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync("hello", @"C:\images", config)).ReturnsAsync(0);
-        var vm = BuildViewModel(app: mockApp, config: config);
+        mockApp.Setup(x => x.RunAsync("hello", It.Is<IReadOnlyList<string>>(p => p.SequenceEqual(new[] { @"C:\temp\paste1\pasted.png" })), config)).ReturnsAsync(0);
+        var mockStore = new Mock<IClipboardImageStore>();
+        mockStore.Setup(x => x.SaveToTempFile(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1\pasted.png");
+        var vm = BuildViewModel(app: mockApp, config: config, clipboardImageStore: mockStore);
         vm.Content = "hello";
-        vm.ImageFolderPath = @"C:\images";
+        vm.PasteImage(DummyImage());
 
         await vm.PostAsync();
 
-        mockApp.Verify(x => x.RunAsync("hello", @"C:\images", config), Times.Once);
+        mockApp.Verify(x => x.RunAsync("hello", It.Is<IReadOnlyList<string>>(p => p.SequenceEqual(new[] { @"C:\temp\paste1\pasted.png" })), config), Times.Once);
     }
 
     [Fact]
-    public async Task 正常系_画像フォルダ未設定時はnullを渡す()
+    public async Task 正常系_添付画像なし時は空リストを渡す()
     {
         var config = ValidConfig();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync("hello", null, config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync("hello", It.Is<IReadOnlyList<string>>(p => p.Count == 0), config)).ReturnsAsync(0);
         var vm = BuildViewModel(app: mockApp, config: config);
         vm.Content = "hello";
 
         await vm.PostAsync();
 
-        mockApp.Verify(x => x.RunAsync("hello", null, config), Times.Once);
+        mockApp.Verify(x => x.RunAsync("hello", It.Is<IReadOnlyList<string>>(p => p.Count == 0), config), Times.Once);
     }
 
     [Fact]
@@ -219,7 +171,7 @@ public class MainWindowViewModelTests
     {
         var tcs = new TaskCompletionSource<int>();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AppConfig>()))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
             .Returns(tcs.Task);
         var vm = BuildViewModel(app: mockApp);
         vm.Content = "hello";
@@ -239,7 +191,7 @@ public class MainWindowViewModelTests
         // 04書 G-007: 二重投稿防止
         var tcs = new TaskCompletionSource<int>();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AppConfig>()))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
             .Returns(tcs.Task);
         var vm = BuildViewModel(app: mockApp);
         vm.Content = "hello";
@@ -288,80 +240,105 @@ public class MainWindowViewModelTests
     }
 
     // ──────────────────────────────────────────────────────────────────
-    // クリップボード画像貼り付け(04書 G-010)
+    // フォルダ選択(04書 G-003)
     // ──────────────────────────────────────────────────────────────────
 
     private static System.Windows.Media.Imaging.BitmapSource DummyImage() =>
         new System.Windows.Media.Imaging.WriteableBitmap(1, 1, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null);
 
     [Fact]
-    public void 正常系_画像を貼り付けると一時フォルダが画像フォルダパスに設定される()
+    public void 正常系_SetImagesFromFolderでフォルダ内の画像がソート順に追加される()
     {
-        var mockStore = new Mock<IClipboardImageStore>();
-        mockStore.Setup(x => x.SaveToTempFolder(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1");
-        var vm = BuildViewModel(clipboardImageStore: mockStore);
+        var mockFolderReader = new Mock<IImageFolderReader>();
+        mockFolderReader.Setup(x => x.Read(@"C:\images"))
+            .Returns(ImageFolderReadResult.Success(new List<string> { "a.png", "b.png" }));
+        var vm = BuildViewModel(imageFolderReader: mockFolderReader);
 
-        vm.PasteImage(DummyImage());
+        vm.SetImagesFromFolder(@"C:\images");
 
-        Assert.Equal(@"C:\temp\paste1", vm.ImageFolderPath);
+        Assert.Equal(new[] { @"C:\images\a.png", @"C:\images\b.png" }, vm.AttachedImages.Select(i => i.FilePath));
+        Assert.All(vm.AttachedImages, i => Assert.False(i.IsTemporary));
     }
 
     [Fact]
-    public void 正常系_再度貼り付けると前回の一時フォルダを削除する()
+    public void 正常系_SetImagesFromFolderは既存リストを全てクリアしてから置き換える()
     {
-        var mockStore = new Mock<IClipboardImageStore>();
-        mockStore.SetupSequence(x => x.SaveToTempFolder(It.IsAny<System.Windows.Media.Imaging.BitmapSource>()))
-            .Returns(@"C:\temp\paste1")
-            .Returns(@"C:\temp\paste2");
-        var vm = BuildViewModel(clipboardImageStore: mockStore);
+        var mockFolderReader = new Mock<IImageFolderReader>();
+        mockFolderReader.Setup(x => x.Read(@"C:\images1")).Returns(ImageFolderReadResult.Success(new List<string> { "old.png" }));
+        mockFolderReader.Setup(x => x.Read(@"C:\images2")).Returns(ImageFolderReadResult.Success(new List<string> { "new.png" }));
+        var vm = BuildViewModel(imageFolderReader: mockFolderReader);
+        vm.SetImagesFromFolder(@"C:\images1");
 
-        vm.PasteImage(DummyImage());
-        vm.PasteImage(DummyImage());
+        vm.SetImagesFromFolder(@"C:\images2");
 
-        Assert.Equal(@"C:\temp\paste2", vm.ImageFolderPath);
-        mockStore.Verify(x => x.Delete(@"C:\temp\paste1"), Times.Once);
-        mockStore.Verify(x => x.Delete(@"C:\temp\paste2"), Times.Never);
+        Assert.Equal(new[] { @"C:\images2\new.png" }, vm.AttachedImages.Select(i => i.FilePath));
     }
 
     [Fact]
-    public void 正常系_貼り付け後にClearImageFolderCommandを実行すると一時フォルダを削除する()
+    public void 正常系_SetImagesFromFolderで一時ファイルはクリア時に削除される()
     {
         var mockStore = new Mock<IClipboardImageStore>();
-        mockStore.Setup(x => x.SaveToTempFolder(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1");
-        var vm = BuildViewModel(clipboardImageStore: mockStore);
+        mockStore.Setup(x => x.SaveToTempFile(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1\pasted.png");
+        var mockFolderReader = new Mock<IImageFolderReader>();
+        mockFolderReader.Setup(x => x.Read(@"C:\images")).Returns(ImageFolderReadResult.Success(new List<string>()));
+        var vm = BuildViewModel(clipboardImageStore: mockStore, imageFolderReader: mockFolderReader);
         vm.PasteImage(DummyImage());
 
-        vm.ClearImageFolderCommand.Execute(null);
+        vm.SetImagesFromFolder(@"C:\images");
 
-        Assert.Null(vm.ImageFolderPath);
-        mockStore.Verify(x => x.Delete(@"C:\temp\paste1"), Times.Once);
+        mockStore.Verify(x => x.Delete(@"C:\temp\paste1\pasted.png"), Times.Once);
     }
 
     [Fact]
-    public void 正常系_貼り付け後に画像フォルダを選択すると一時フォルダを削除する()
+    public void 異常系_SetImagesFromFolderがエラーの場合はリストを変更しない()
     {
-        // 04書 G-003 第3.1節: フォルダ選択・クリップボード画像貼り付けは互いに排他
+        var mockFolderReader = new Mock<IImageFolderReader>();
+        mockFolderReader.Setup(x => x.Read(@"C:\images1")).Returns(ImageFolderReadResult.Success(new List<string> { "a.png" }));
+        mockFolderReader.Setup(x => x.Read(@"C:\missing")).Returns(ImageFolderReadResult.Failure("フォルダが存在しません"));
+        var outputWriter = new GuiOutputWriter();
+        var vm = BuildViewModel(imageFolderReader: mockFolderReader, outputWriter: outputWriter);
+        vm.SetImagesFromFolder(@"C:\images1");
+
+        vm.SetImagesFromFolder(@"C:\missing");
+
+        Assert.Equal(new[] { @"C:\images1\a.png" }, vm.AttachedImages.Select(i => i.FilePath));
+        Assert.Contains(outputWriter.Entries, e => e.Severity == LogSeverity.Error);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // クリップボード画像貼り付け(04書 G-010): 追加(置き換えではない)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 正常系_画像を貼り付けると添付画像一覧に追加される()
+    {
         var mockStore = new Mock<IClipboardImageStore>();
-        mockStore.Setup(x => x.SaveToTempFolder(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1");
+        mockStore.Setup(x => x.SaveToTempFile(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1\pasted.png");
         var vm = BuildViewModel(clipboardImageStore: mockStore);
+
         vm.PasteImage(DummyImage());
 
-        vm.ImageFolderPath = @"C:\real\folder";
-
-        Assert.Equal(@"C:\real\folder", vm.ImageFolderPath);
-        mockStore.Verify(x => x.Delete(@"C:\temp\paste1"), Times.Once);
+        var image = Assert.Single(vm.AttachedImages);
+        Assert.Equal(@"C:\temp\paste1\pasted.png", image.FilePath);
+        Assert.True(image.IsTemporary);
     }
 
     [Fact]
-    public void 正常系_貼り付けにより削除チェックボックスが有効になる()
+    public void 正常系_続けて貼り付けると前回の画像を置き換えずに追加される()
     {
         var mockStore = new Mock<IClipboardImageStore>();
-        mockStore.Setup(x => x.SaveToTempFolder(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1");
+        mockStore.SetupSequence(x => x.SaveToTempFile(It.IsAny<System.Windows.Media.Imaging.BitmapSource>()))
+            .Returns(@"C:\temp\paste1\pasted.png")
+            .Returns(@"C:\temp\paste2\pasted.png");
         var vm = BuildViewModel(clipboardImageStore: mockStore);
 
         vm.PasteImage(DummyImage());
+        vm.PasteImage(DummyImage());
 
-        Assert.True(vm.IsDeleteCheckboxEnabled);
+        Assert.Equal(
+            new[] { @"C:\temp\paste1\pasted.png", @"C:\temp\paste2\pasted.png" },
+            vm.AttachedImages.Select(i => i.FilePath));
+        mockStore.Verify(x => x.Delete(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -370,7 +347,7 @@ public class MainWindowViewModelTests
         // 04書 G-010 第6節
         var tcs = new TaskCompletionSource<int>();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AppConfig>()))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
             .Returns(tcs.Task);
         var mockStore = new Mock<IClipboardImageStore>();
         var vm = BuildViewModel(app: mockApp, clipboardImageStore: mockStore);
@@ -379,10 +356,237 @@ public class MainWindowViewModelTests
         var postTask = vm.PostAsync();
         vm.PasteImage(DummyImage());
 
-        mockStore.Verify(x => x.SaveToTempFolder(It.IsAny<System.Windows.Media.Imaging.BitmapSource>()), Times.Never);
-        Assert.Null(vm.ImageFolderPath);
+        mockStore.Verify(x => x.SaveToTempFile(It.IsAny<System.Windows.Media.Imaging.BitmapSource>()), Times.Never);
+        Assert.Empty(vm.AttachedImages);
 
         tcs.SetResult(0);
         await postTask;
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // 複数ファイルのクリップボード貼り付け(04書 G-010、issue #13)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 正常系_PasteFilesで対応拡張子のファイルが追加される()
+    {
+        var vm = BuildViewModel();
+
+        vm.PasteFiles(new[] { @"C:\real\a.png", @"C:\real\b.jpg" });
+
+        Assert.Equal(
+            new[] { @"C:\real\a.png", @"C:\real\b.jpg" },
+            vm.AttachedImages.Select(i => i.FilePath));
+        Assert.All(vm.AttachedImages, i => Assert.False(i.IsTemporary));
+    }
+
+    [Fact]
+    public void 正常系_PasteFilesは既存の一覧に追加する()
+    {
+        var mockStore = new Mock<IClipboardImageStore>();
+        mockStore.Setup(x => x.SaveToTempFile(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1\pasted.png");
+        var vm = BuildViewModel(clipboardImageStore: mockStore);
+        vm.PasteImage(DummyImage());
+
+        vm.PasteFiles(new[] { @"C:\real\a.png" });
+
+        Assert.Equal(
+            new[] { @"C:\temp\paste1\pasted.png", @"C:\real\a.png" },
+            vm.AttachedImages.Select(i => i.FilePath));
+    }
+
+    [Fact]
+    public void 正常系_PasteFilesで非対応拡張子は除外され警告ログにファイル名が表示される()
+    {
+        var outputWriter = new GuiOutputWriter();
+        var vm = BuildViewModel(outputWriter: outputWriter);
+
+        vm.PasteFiles(new[] { @"C:\real\a.png", @"C:\real\readme.txt" });
+
+        Assert.Equal(new[] { @"C:\real\a.png" }, vm.AttachedImages.Select(i => i.FilePath));
+        Assert.Contains(outputWriter.Entries, e => e.Severity == LogSeverity.Warning && e.Message.Contains("readme.txt"));
+    }
+
+    [Fact]
+    public async Task 正常系_投稿中はPasteFilesを無視する()
+    {
+        var tcs = new TaskCompletionSource<int>();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
+            .Returns(tcs.Task);
+        var vm = BuildViewModel(app: mockApp);
+        vm.Content = "hello";
+
+        var postTask = vm.PostAsync();
+        vm.PasteFiles(new[] { @"C:\real\a.png" });
+
+        Assert.Empty(vm.AttachedImages);
+
+        tcs.SetResult(0);
+        await postTask;
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // 個別削除・全削除(04書 G-013)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 正常系_RemoveImageCommandで指定した1件だけ除去する()
+    {
+        var mockStore = new Mock<IClipboardImageStore>();
+        mockStore.SetupSequence(x => x.SaveToTempFile(It.IsAny<System.Windows.Media.Imaging.BitmapSource>()))
+            .Returns(@"C:\temp\paste1\pasted.png")
+            .Returns(@"C:\temp\paste2\pasted.png");
+        var vm = BuildViewModel(clipboardImageStore: mockStore);
+        vm.PasteImage(DummyImage());
+        vm.PasteImage(DummyImage());
+        var target = vm.AttachedImages[0];
+
+        vm.RemoveImageCommand.Execute(target);
+
+        Assert.Equal(new[] { @"C:\temp\paste2\pasted.png" }, vm.AttachedImages.Select(i => i.FilePath));
+    }
+
+    [Fact]
+    public void 正常系_RemoveImageCommandで一時ファイルは実削除する()
+    {
+        var mockStore = new Mock<IClipboardImageStore>();
+        mockStore.Setup(x => x.SaveToTempFile(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1\pasted.png");
+        var vm = BuildViewModel(clipboardImageStore: mockStore);
+        vm.PasteImage(DummyImage());
+        var target = vm.AttachedImages[0];
+
+        vm.RemoveImageCommand.Execute(target);
+
+        mockStore.Verify(x => x.Delete(@"C:\temp\paste1\pasted.png"), Times.Once);
+    }
+
+    [Fact]
+    public void 正常系_RemoveImageCommandで実ファイル由来は削除しない()
+    {
+        var mockStore = new Mock<IClipboardImageStore>();
+        var vm = BuildViewModel(clipboardImageStore: mockStore);
+        vm.PasteFiles(new[] { @"C:\real\a.png" });
+        var target = vm.AttachedImages[0];
+
+        vm.RemoveImageCommand.Execute(target);
+
+        Assert.Empty(vm.AttachedImages);
+        mockStore.Verify(x => x.Delete(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public void 正常系_ClearImagesCommandで全て除去し一時ファイルのみ削除する()
+    {
+        var mockStore = new Mock<IClipboardImageStore>();
+        mockStore.Setup(x => x.SaveToTempFile(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1\pasted.png");
+        var vm = BuildViewModel(clipboardImageStore: mockStore);
+        vm.PasteImage(DummyImage());
+        vm.PasteFiles(new[] { @"C:\real\a.png" });
+
+        vm.ClearImagesCommand.Execute(null);
+
+        Assert.Empty(vm.AttachedImages);
+        mockStore.Verify(x => x.Delete(@"C:\temp\paste1\pasted.png"), Times.Once);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // サムネイルのドラッグ&ドロップ並べ替え(04書 G-011)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 正常系_MoveImageで指定位置に移動する()
+    {
+        var vm = BuildViewModel();
+        vm.PasteFiles(new[] { @"C:\real\a.png", @"C:\real\b.png", @"C:\real\c.png" });
+
+        vm.MoveImage(0, 2);
+
+        Assert.Equal(
+            new[] { @"C:\real\b.png", @"C:\real\c.png", @"C:\real\a.png" },
+            vm.AttachedImages.Select(i => i.FilePath));
+    }
+
+    [Fact]
+    public void 正常系_MoveImageで末尾から先頭へ移動できる()
+    {
+        var vm = BuildViewModel();
+        vm.PasteFiles(new[] { @"C:\real\a.png", @"C:\real\b.png", @"C:\real\c.png" });
+
+        vm.MoveImage(2, 0);
+
+        Assert.Equal(
+            new[] { @"C:\real\c.png", @"C:\real\a.png", @"C:\real\b.png" },
+            vm.AttachedImages.Select(i => i.FilePath));
+    }
+
+    [Fact]
+    public void 正常系_MoveImageで同じ位置を指定した場合は順序が変わらない()
+    {
+        var vm = BuildViewModel();
+        vm.PasteFiles(new[] { @"C:\real\a.png", @"C:\real\b.png" });
+
+        vm.MoveImage(1, 1);
+
+        Assert.Equal(
+            new[] { @"C:\real\a.png", @"C:\real\b.png" },
+            vm.AttachedImages.Select(i => i.FilePath));
+    }
+
+    [Theory]
+    [InlineData(-1, 0)]
+    [InlineData(0, 5)]
+    [InlineData(5, 0)]
+    public void 異常系_範囲外のインデックスは無視する(int fromIndex, int toIndex)
+    {
+        var vm = BuildViewModel();
+        vm.PasteFiles(new[] { @"C:\real\a.png", @"C:\real\b.png" });
+
+        vm.MoveImage(fromIndex, toIndex);
+
+        Assert.Equal(
+            new[] { @"C:\real\a.png", @"C:\real\b.png" },
+            vm.AttachedImages.Select(i => i.FilePath));
+    }
+
+    [Fact]
+    public async Task 正常系_投稿中はMoveImageを無視する()
+    {
+        var tcs = new TaskCompletionSource<int>();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
+            .Returns(tcs.Task);
+        var vm = BuildViewModel(app: mockApp);
+        vm.Content = "hello";
+        vm.PasteFiles(new[] { @"C:\real\a.png", @"C:\real\b.png" });
+
+        var postTask = vm.PostAsync();
+        vm.MoveImage(0, 1);
+
+        Assert.Equal(
+            new[] { @"C:\real\a.png", @"C:\real\b.png" },
+            vm.AttachedImages.Select(i => i.FilePath));
+
+        tcs.SetResult(0);
+        await postTask;
+    }
+
+    [Fact]
+    public async Task 正常系_MoveImage後のPostAsyncは並べ替え後の順序で渡す()
+    {
+        var config = ValidConfig();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        var vm = BuildViewModel(app: mockApp, config: config);
+        vm.Content = "hello";
+        vm.PasteFiles(new[] { @"C:\real\a.png", @"C:\real\b.png" });
+
+        vm.MoveImage(0, 1);
+        await vm.PostAsync();
+
+        mockApp.Verify(x => x.RunAsync(
+            "hello",
+            It.Is<IReadOnlyList<string>>(p => p.SequenceEqual(new[] { @"C:\real\b.png", @"C:\real\a.png" })),
+            config), Times.Once);
     }
 }

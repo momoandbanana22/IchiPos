@@ -3,12 +3,13 @@ using System.Windows.Media.Imaging;
 namespace IchiPos.Gui;
 
 /// <summary>
-/// クリップボード画像を一時フォルダへPNGとして保存するIClipboardImageStore実装。
-/// 保存先は %TEMP%\IchiPos\&lt;GUID&gt;\pasted.png とし、貼り付けのたびに新しいフォルダを使う。
+/// クリップボード画像を一時ファイルへPNGとして保存するIClipboardImageStore実装。
+/// 保存先は %TEMP%\IchiPos\&lt;GUID&gt;\pasted.png とし、貼り付けのたびに新しいフォルダ・ファイルを使う
+/// (1貼り付け=1フォルダ=1ファイルのため、個別削除の単位としてそのままフォルダごと削除できる)。
 /// </summary>
 public class TempClipboardImageStore : IClipboardImageStore
 {
-    public string SaveToTempFolder(BitmapSource image)
+    public string SaveToTempFile(BitmapSource image)
     {
         var folder = Path.Combine(Path.GetTempPath(), "IchiPos", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
@@ -21,14 +22,15 @@ public class TempClipboardImageStore : IClipboardImageStore
             encoder.Save(stream);
         }
 
-        return folder;
+        return filePath;
     }
 
-    public void Delete(string folderPath)
+    public void Delete(string filePath)
     {
-        if (Directory.Exists(folderPath))
+        var folder = Path.GetDirectoryName(filePath);
+        if (folder != null && Directory.Exists(folder))
         {
-            Directory.Delete(folderPath, recursive: true);
+            Directory.Delete(folder, recursive: true);
         }
     }
 }

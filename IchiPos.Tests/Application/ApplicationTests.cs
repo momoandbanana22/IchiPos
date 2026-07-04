@@ -495,7 +495,7 @@ public class ApplicationTests
     }
 
     // ──────────────────────────────────────────────────────────────────
-    // GUI入力（RunAsync(content, imagePath, config)、04書 G-005）
+    // GUI入力（RunAsync(content, imagePaths, config)、04書 G-005）
     // ──────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -509,10 +509,8 @@ public class ApplicationTests
         };
 
         var mockContent = new Mock<IContentResolver>();
-        var mockFolder = new Mock<IImageFolderReader>();
-        mockFolder.Setup(x => x.Read(null)).Returns(ImageFolderReadResult.Success(new List<string>()));
         var mockValidator = new Mock<IImageValidator>();
-        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+        mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
             .Returns(ImageValidationResult.Success(new List<string>()));
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
@@ -522,11 +520,11 @@ public class ApplicationTests
         mockX.Setup(x => x.LaunchAsync("hello", config)).ReturnsAsync(XPostLaunchResult.Success());
 
         var app = BuildApp(
-            new Mock<ICommandLineParser>(), mockContent, mockFolder, mockValidator,
+            new Mock<ICommandLineParser>(), mockContent, new Mock<IImageFolderReader>(), mockValidator,
             mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
             datePlaceholder: PassthroughDatePlaceholder());
 
-        var result = await app.RunAsync("hello", null, config);
+        var result = await app.RunAsync("hello", Array.Empty<string>(), config);
 
         Assert.Equal(0, result);
         mockMisskey.Verify(x => x.PostAsync("hello", It.IsAny<List<string>>(), config), Times.Once);
@@ -540,10 +538,8 @@ public class ApplicationTests
         var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
 
         var mockContent = new Mock<IContentResolver>();
-        var mockFolder = new Mock<IImageFolderReader>();
-        mockFolder.Setup(x => x.Read(null)).Returns(ImageFolderReadResult.Success(new List<string>()));
         var mockValidator = new Mock<IImageValidator>();
-        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+        mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
             .Returns(ImageValidationResult.Success(new List<string>()));
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate("hello.txt", It.IsAny<List<string>>(), It.IsAny<int>()))
@@ -555,11 +551,11 @@ public class ApplicationTests
         mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
 
         var app = BuildApp(
-            new Mock<ICommandLineParser>(), mockContent, mockFolder, mockValidator,
+            new Mock<ICommandLineParser>(), mockContent, new Mock<IImageFolderReader>(), mockValidator,
             mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
             datePlaceholder: PassthroughDatePlaceholder());
 
-        var result = await app.RunAsync("hello.txt", null, config);
+        var result = await app.RunAsync("hello.txt", Array.Empty<string>(), config);
 
         Assert.Equal(0, result);
         mockContent.Verify(x => x.ResolveAsync(It.IsAny<string>()), Times.Never);
@@ -571,10 +567,8 @@ public class ApplicationTests
     {
         var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
 
-        var mockFolder = new Mock<IImageFolderReader>();
-        mockFolder.Setup(x => x.Read(null)).Returns(ImageFolderReadResult.Success(new List<string>()));
         var mockValidator = new Mock<IImageValidator>();
-        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+        mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
             .Returns(ImageValidationResult.Success(new List<string>()));
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate("今日は2026/07/04です", It.IsAny<List<string>>(), It.IsAny<int>()))
@@ -589,14 +583,72 @@ public class ApplicationTests
         mockDatePlaceholder.Setup(x => x.Replace("今日は{date}です")).Returns("今日は2026/07/04です");
 
         var app = BuildApp(
-            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), mockFolder, mockValidator,
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), new Mock<IImageFolderReader>(), mockValidator,
             mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
             datePlaceholder: mockDatePlaceholder);
 
-        var result = await app.RunAsync("今日は{date}です", null, config);
+        var result = await app.RunAsync("今日は{date}です", Array.Empty<string>(), config);
 
         Assert.Equal(0, result);
         mockMisskey.Verify(x => x.PostAsync("今日は2026/07/04です", It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GUI入力_正常系_複数の画像パスをそのまま検証投稿に渡す()
+    {
+        // issue #13: GUIは画像ファイルのフルパスのリストをそのまま検証・投稿へ渡す（フォルダ結合をしない）
+        var config = new AppConfig
+        {
+            Misskey = new MisskeyConfig { InstanceUrl = "https://misskey.example.com", AccessToken = "test_token", Visibility = "public" },
+            X = new XConfig { PostUrlBase = "https://twitter.com/intent/tweet" },
+            Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 }
+        };
+        var imagePaths = new List<string> { @"C:\folder\a.png", @"C:\temp\pasted.png" };
+
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.ValidateFiles(imagePaths))
+            .Returns(ImageValidationResult.Success(imagePaths));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate("hello", imagePaths, 280)).Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync("hello", imagePaths, config)).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync("hello", config)).ReturnsAsync(XPostLaunchResult.Success());
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), new Mock<IImageFolderReader>(), mockValidator,
+            mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
+            datePlaceholder: PassthroughDatePlaceholder());
+
+        var result = await app.RunAsync("hello", imagePaths, config);
+
+        Assert.Equal(0, result);
+        mockValidator.Verify(x => x.ValidateFiles(imagePaths), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync("hello", imagePaths, config), Times.Once);
+    }
+
+    [Fact]
+    public async Task GUI入力_異常系_画像検証失敗時はMisskey投稿を開始しない()
+    {
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+        var imagePaths = new List<string> { @"C:\folder\broken.png" };
+
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.ValidateFiles(imagePaths))
+            .Returns(ImageValidationResult.Failure("画像として読み込めないファイルが含まれています"));
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        var mockOutput = new Mock<IOutputWriter>();
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), new Mock<IImageFolderReader>(), mockValidator,
+            new Mock<IPrePostValidator>(), mockMisskey, new Mock<IXPostLauncher>(), mockOutput,
+            datePlaceholder: PassthroughDatePlaceholder());
+
+        var result = await app.RunAsync("hello", imagePaths, config);
+
+        Assert.Equal(1, result);
+        mockOutput.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
     }
 
     [Fact]
@@ -604,10 +656,8 @@ public class ApplicationTests
     {
         var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
 
-        var mockFolder = new Mock<IImageFolderReader>();
-        mockFolder.Setup(x => x.Read(null)).Returns(ImageFolderReadResult.Success(new List<string>()));
         var mockValidator = new Mock<IImageValidator>();
-        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+        mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
             .Returns(ImageValidationResult.Success(new List<string>()));
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
@@ -616,11 +666,11 @@ public class ApplicationTests
         var mockOutput = new Mock<IOutputWriter>();
 
         var app = BuildApp(
-            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), mockFolder, mockValidator,
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), new Mock<IImageFolderReader>(), mockValidator,
             mockPrePost, mockMisskey, new Mock<IXPostLauncher>(), mockOutput,
             datePlaceholder: PassthroughDatePlaceholder());
 
-        var result = await app.RunAsync("", null, config);
+        var result = await app.RunAsync("", Array.Empty<string>(), config);
 
         Assert.Equal(1, result);
         mockOutput.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
@@ -637,10 +687,8 @@ public class ApplicationTests
             Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 }
         };
 
-        var mockFolder = new Mock<IImageFolderReader>();
-        mockFolder.Setup(x => x.Read(null)).Returns(ImageFolderReadResult.Success(new List<string>()));
         var mockValidator = new Mock<IImageValidator>();
-        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+        mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
             .Returns(ImageValidationResult.Success(new List<string>()));
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
@@ -650,11 +698,11 @@ public class ApplicationTests
         var mockX = new Mock<IXPostLauncher>();
 
         var app = BuildApp(
-            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), mockFolder, mockValidator,
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), new Mock<IImageFolderReader>(), mockValidator,
             mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
             datePlaceholder: PassthroughDatePlaceholder());
 
-        var result = await app.RunAsync("hello", null, config);
+        var result = await app.RunAsync("hello", Array.Empty<string>(), config);
 
         Assert.NotEqual(0, result);
         mockX.Verify(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>()), Times.Never);

@@ -7,8 +7,6 @@ public interface IImageFolderReader
 
 public class ImageFolderReader : IImageFolderReader
 {
-    private static readonly string[] SupportedExtensions = { ".png", ".jpg", ".jpeg", ".gif" };
-
     public ImageFolderReadResult Read(string? folderPath)
     {
         // 未指定の場合は空のリストを返す
@@ -26,7 +24,7 @@ public class ImageFolderReader : IImageFolderReader
         try
         {
             var imageFiles = Directory.GetFiles(folderPath)
-                .Where(file => SupportedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()))
+                .Where(SupportedImageExtensions.IsSupported)
                 .Select(Path.GetFileName)
                 .Where(name => name != null)
                 .OrderBy(name => name!)

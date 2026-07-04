@@ -14,8 +14,8 @@ public interface IIchiPosApplication
     /// <summary>CLI入力受付（F-001）を経由する実行。コマンドライン引数を解析する。</summary>
     Task<int> RunAsync(string[] args, AppConfig config);
 
-    /// <summary>GUI入力受付（04書 G-005）を経由する実行。.txtファイル判定（F-002）は行わない。</summary>
-    Task<int> RunAsync(string content, string? imagePath, AppConfig config);
+    /// <summary>GUI入力受付（04書 G-005）を経由する実行。.txtファイル判定（F-002）は行わない。画像は添付ファイルのフルパスのリストで受け取る。</summary>
+    Task<int> RunAsync(string content, IReadOnlyList<string> imagePaths, AppConfig config);
 }
 
 public class IchiPosApplication : IIchiPosApplication
@@ -81,19 +81,19 @@ public class IchiPosApplication : IIchiPosApplication
             return 1;
         }
 
-        return await RunPostPipelineAsync(contentResult.Content!, parseResult.ImagePath, config);
+        return await RunFolderPostPipelineAsync(contentResult.Content!, parseResult.ImagePath, config);
     }
 
-    public async Task<int> RunAsync(string content, string? imagePath, AppConfig config)
+    public async Task<int> RunAsync(string content, IReadOnlyList<string> imagePaths, AppConfig config)
     {
         // GUI入力: .txtファイル判定（F-002）は行わず、常に文字列として扱う。
         // 日付プレースホルダ置換（F-013）のみ、投稿実行時にCLIと同じ規則で適用する。
         var replacedContent = _datePlaceholderReplacer.Replace(content);
-        return await RunPostPipelineAsync(replacedContent, imagePath, config);
+        return await RunListPostPipelineAsync(replacedContent, imagePaths, config);
     }
 
-    /// <summary>画像一覧取得〜画像削除まで（F-004〜F-011）。CLI/GUI共通の投稿パイプライン。</summary>
-    private async Task<int> RunPostPipelineAsync(string content, string? imagePath, AppConfig config)
+    /// <summary>画像一覧取得〜投稿前チェックまで（F-004〜F-005）。CLI専用: フォルダパスから画像一覧を解決する。</summary>
+    private async Task<int> RunFolderPostPipelineAsync(string content, string? imagePath, AppConfig config)
     {
         _outputWriter.WriteInfo($"投稿テキストを取得しました（{content.Length}文字）");
 
@@ -116,11 +116,34 @@ public class IchiPosApplication : IIchiPosApplication
         }
         _outputWriter.WriteInfo($"添付画像: {imageValidationResult.ValidImagePaths.Count}枚");
 
+        return await RunCommonPipelineAsync(content, imageValidationResult.ValidImagePaths, config);
+    }
+
+    /// <summary>画像添付対象判定〜投稿前チェックまで（F-005）。GUI専用: 画面が管理する画像ファイルのフルパスのリストをそのまま検証する。</summary>
+    private async Task<int> RunListPostPipelineAsync(string content, IReadOnlyList<string> imagePaths, AppConfig config)
+    {
+        _outputWriter.WriteInfo($"投稿テキストを取得しました（{content.Length}文字）");
+
+        // 画像添付対象判定（フォルダ結合は行わず、渡されたフルパスをそのまま検証する）
+        var imageValidationResult = _imageValidator.ValidateFiles(imagePaths.ToList());
+        if (!imageValidationResult.IsSuccess)
+        {
+            _outputWriter.WriteError($"画像エラー: {imageValidationResult.ErrorMessage}");
+            return 1;
+        }
+        _outputWriter.WriteInfo($"添付画像: {imageValidationResult.ValidImagePaths.Count}枚");
+
+        return await RunCommonPipelineAsync(content, imageValidationResult.ValidImagePaths, config);
+    }
+
+    /// <summary>投稿前チェック〜画像削除まで（F-006〜F-011）。CLI/GUI共通の投稿パイプライン。</summary>
+    private async Task<int> RunCommonPipelineAsync(string content, List<string> validImagePaths, AppConfig config)
+    {
         // 5. 投稿前チェック
         var maxLength = Math.Min(config.Limits.MisskeyMaxLength, config.Limits.XMaxLength);
         var validationResult = _prePostValidator.Validate(
             content,
-            imageValidationResult.ValidImagePaths,
+            validImagePaths,
             maxLength);
         if (!validationResult.IsSuccess)
         {
@@ -131,7 +154,7 @@ public class IchiPosApplication : IIchiPosApplication
         // 6. Misskeyに投稿
         var misskeyResult = await _misskeyPoster.PostAsync(
             content,
-            imageValidationResult.ValidImagePaths,
+            validImagePaths,
             config);
         if (!misskeyResult.IsSuccess)
         {
@@ -154,16 +177,16 @@ public class IchiPosApplication : IIchiPosApplication
 
         // X Intent URL では画像を渡せないため、ユーザーが Ctrl+V で貼り付けられるよう
         // 1枚目の画像をクリップボードにコピーする。
-        if (imageValidationResult.ValidImagePaths.Count > 0)
+        if (validImagePaths.Count > 0)
         {
-            _clipboardService.SetImage(imageValidationResult.ValidImagePaths[0]);
-            var total = imageValidationResult.ValidImagePaths.Count;
+            _clipboardService.SetImage(validImagePaths[0]);
+            var total = validImagePaths.Count;
             if (total == 1)
                 _outputWriter.WriteInfo("画像をクリップボードにコピーしました。X下書き画面で Ctrl+V で貼り付けてください。");
             else
                 _outputWriter.WriteInfo($"1枚目の画像をクリップボードにコピーしました（全{total}枚）。X下書き画面で Ctrl+V で貼り付けてください。残り{total - 1}枚は手動で添付してください。");
 
-            await _imageCleanupService.RunAsync(imageValidationResult.ValidImagePaths);
+            await _imageCleanupService.RunAsync(validImagePaths);
         }
 
         return 0;
