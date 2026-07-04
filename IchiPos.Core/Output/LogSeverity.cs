@@ -4,5 +4,6 @@ public enum LogSeverity
 {
     Info,
     Success,
+    Warning,
     Error
 }

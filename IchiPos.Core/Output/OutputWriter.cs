@@ -5,6 +5,7 @@ public interface IOutputWriter
     void WriteSuccess(string message);
     void WriteError(string message);
     void WriteInfo(string message);
+    void WriteWarning(string message);
 }
 
 public class OutputWriter : IOutputWriter
@@ -25,4 +26,6 @@ public class OutputWriter : IOutputWriter
     public void WriteError(string message) => _error.WriteLine(message);
 
     public void WriteInfo(string message) => _out.WriteLine(message);
+
+    public void WriteWarning(string message) => _out.WriteLine(message);
 }

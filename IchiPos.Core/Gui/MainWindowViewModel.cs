@@ -1,11 +1,13 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using IchiPos.Application;
 using IchiPos.Config;
 using IchiPos.Content;
+using IchiPos.Images;
 using IchiPos.Output;
 
 namespace IchiPos.Gui;
@@ -18,12 +20,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly ITextFileReader _textFileReader;
     private readonly GuiOutputWriter _outputWriter;
     private readonly IClipboardImageStore _clipboardImageStore;
+    private readonly IImageFolderReader _imageFolderReader;
     private readonly AsyncRelayCommand _postCommand;
 
     private string _content = string.Empty;
-    private string? _imageFolderPath;
-    private string? _pastedImageTempFolder;
-    private bool _deleteImagesAfterPost;
     private bool _isBusy;
 
     public MainWindowViewModel(
@@ -31,16 +31,19 @@ public class MainWindowViewModel : INotifyPropertyChanged
         AppConfig config,
         ITextFileReader textFileReader,
         GuiOutputWriter outputWriter,
-        IClipboardImageStore clipboardImageStore)
+        IClipboardImageStore clipboardImageStore,
+        IImageFolderReader imageFolderReader)
     {
         _app = app;
         _config = config;
         _textFileReader = textFileReader;
         _outputWriter = outputWriter;
         _clipboardImageStore = clipboardImageStore;
+        _imageFolderReader = imageFolderReader;
 
         _postCommand = new AsyncRelayCommand(PostAsync, () => !IsBusy);
-        ClearImageFolderCommand = new RelayCommand(() => ImageFolderPath = null);
+        RemoveImageCommand = new RelayCommand<AttachedImage>(RemoveImage);
+        ClearImagesCommand = new RelayCommand(ClearImages);
         ClearLogCommand = new RelayCommand(() => _outputWriter.Clear());
     }
 
@@ -67,38 +70,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     private int MaxLength => Math.Min(_config.Limits.MisskeyMaxLength, _config.Limits.XMaxLength);
 
-    /// <summary>P-04: 画像フォルダパス。未選択の場合はnull。</summary>
-    public string? ImageFolderPath
-    {
-        get => _imageFolderPath;
-        set
-        {
-            var previousPastedFolder = _pastedImageTempFolder;
-
-            if (SetProperty(ref _imageFolderPath, value))
-            {
-                OnPropertyChanged(nameof(IsDeleteCheckboxEnabled));
-            }
-
-            // 04書 G-003 第3.1節: フォルダ選択・クリア・貼り付けは互いに排他。
-            // 貼り付けで作成した一時フォルダが今回の変更で不要になった場合は削除する。
-            if (previousPastedFolder != null && previousPastedFolder != value)
-            {
-                _clipboardImageStore.Delete(previousPastedFolder);
-                _pastedImageTempFolder = null;
-            }
-        }
-    }
-
-    /// <summary>P-07: 投稿後に画像を削除するかどうかの事前設定(04書 G-004)。</summary>
-    public bool DeleteImagesAfterPost
-    {
-        get => _deleteImagesAfterPost;
-        set => SetProperty(ref _deleteImagesAfterPost, value);
-    }
-
-    /// <summary>画像フォルダ未設定時はP-07を無効化する(04書 G-004 第4節)。</summary>
-    public bool IsDeleteCheckboxEnabled => !string.IsNullOrWhiteSpace(ImageFolderPath);
+    /// <summary>P-04〜: 添付画像候補の一覧(サムネイル一覧、04書 G-013)。追加順を保持する。</summary>
+    public ObservableCollection<AttachedImage> AttachedImages { get; } = new();
 
     /// <summary>投稿処理実行中かどうか(04書 G-007 二重投稿防止)。</summary>
     public bool IsBusy
@@ -126,8 +99,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// <summary>P-08: 投稿するボタン。</summary>
     public ICommand PostCommand => _postCommand;
 
-    /// <summary>P-06: 画像フォルダの選択解除(04書 G-003 第2節)。</summary>
-    public ICommand ClearImageFolderCommand { get; }
+    /// <summary>サムネイル一覧の個別削除ボタン(04書 G-013)。</summary>
+    public ICommand RemoveImageCommand { get; }
+
+    /// <summary>P-06: 添付画像一覧の全解除(04書 G-003 第2節)。</summary>
+    public ICommand ClearImagesCommand { get; }
 
     /// <summary>P-10: ログをクリア(04書 G-006 第5節)。</summary>
     public ICommand ClearLogCommand { get; }
@@ -138,8 +114,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         IsBusy = true;
         try
         {
-            var imagePath = string.IsNullOrWhiteSpace(ImageFolderPath) ? null : ImageFolderPath;
-            await _app.RunAsync(Content, imagePath, _config);
+            var imagePaths = AttachedImages.Select(i => i.FilePath).ToList();
+            await _app.RunAsync(Content, imagePaths, _config);
         }
         finally
         {
@@ -148,16 +124,79 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// クリップボード画像の貼り付け(04書 G-010)。画像を一時フォルダへ保存し、画像フォルダパスに設定する。
-    /// 投稿処理実行中(IsBusy)は無視する。
+    /// P-05: 画像フォルダの選択(04書 G-003)。選択したフォルダ内の対応画像ファイルへ、
+    /// 現在の添付画像一覧を全てクリアしたうえで置き換える(一時ファイルはクリア時に削除する)。
+    /// フォルダ読み込みに失敗した場合は一覧を変更せずエラーをログに出す。
+    /// </summary>
+    public void SetImagesFromFolder(string folderPath)
+    {
+        var result = _imageFolderReader.Read(folderPath);
+        if (!result.IsSuccess)
+        {
+            _outputWriter.WriteError($"画像フォルダエラー: {result.ErrorMessage}");
+            return;
+        }
+
+        ClearImages();
+        foreach (var fileName in result.ImageFiles)
+        {
+            AttachedImages.Add(new AttachedImage(Path.Combine(folderPath, fileName), isTemporary: false));
+        }
+    }
+
+    /// <summary>
+    /// クリップボード画像の貼り付け(04書 G-010)。画像を一時ファイルへ保存し、添付画像一覧へ追加する
+    /// (既存の一覧は置き換えず、末尾に追加する)。投稿処理実行中(IsBusy)は無視する。
     /// </summary>
     public void PasteImage(BitmapSource image)
     {
         if (IsBusy) return;
 
-        var folder = _clipboardImageStore.SaveToTempFolder(image);
-        ImageFolderPath = folder;
-        _pastedImageTempFolder = folder;
+        var filePath = _clipboardImageStore.SaveToTempFile(image);
+        AttachedImages.Add(new AttachedImage(filePath, isTemporary: true));
+    }
+
+    /// <summary>
+    /// クリップボードの複数ファイル(エクスプローラーでの複数選択コピー等)の貼り付け(04書 G-010、issue #13)。
+    /// 対応画像形式のファイルの実パスを添付画像一覧へ追加する(コピーしない)。
+    /// 非対応拡張子のファイルは除外し、除外したファイル名を結果ログに警告として表示する。
+    /// 投稿処理実行中(IsBusy)は無視する。
+    /// </summary>
+    public void PasteFiles(IReadOnlyList<string> filePaths)
+    {
+        if (IsBusy) return;
+
+        var skipped = new List<string>();
+        foreach (var filePath in filePaths)
+        {
+            if (SupportedImageExtensions.IsSupported(filePath))
+            {
+                AttachedImages.Add(new AttachedImage(filePath, isTemporary: false));
+            }
+            else
+            {
+                skipped.Add(Path.GetFileName(filePath));
+            }
+        }
+
+        if (skipped.Count > 0)
+        {
+            _outputWriter.WriteWarning($"非対応の画像形式のため除外しました: {string.Join(", ", skipped)}");
+        }
+    }
+
+    /// <summary>
+    /// サムネイル一覧のドラッグ&ドロップ並べ替え(04書 G-011)。範囲外のインデックスは無視する。
+    /// 投稿処理実行中(IsBusy)は無視する。
+    /// </summary>
+    public void MoveImage(int fromIndex, int toIndex)
+    {
+        if (IsBusy) return;
+        if (fromIndex < 0 || fromIndex >= AttachedImages.Count) return;
+        if (toIndex < 0 || toIndex >= AttachedImages.Count) return;
+        if (fromIndex == toIndex) return;
+
+        AttachedImages.Move(fromIndex, toIndex);
     }
 
     /// <summary>P-03: ファイルから読み込む(04書 G-002 第4節)。読み込み成功時のみ投稿内容を置き換える。</summary>
@@ -172,6 +211,29 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             _outputWriter.WriteError($"投稿内容エラー: {result.ErrorMessage}");
         }
+    }
+
+    private void RemoveImage(AttachedImage? image)
+    {
+        if (image == null) return;
+
+        AttachedImages.Remove(image);
+        if (image.IsTemporary)
+        {
+            _clipboardImageStore.Delete(image.FilePath);
+        }
+    }
+
+    private void ClearImages()
+    {
+        foreach (var image in AttachedImages)
+        {
+            if (image.IsTemporary)
+            {
+                _clipboardImageStore.Delete(image.FilePath);
+            }
+        }
+        AttachedImages.Clear();
     }
 
     private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

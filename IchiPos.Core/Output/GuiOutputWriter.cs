@@ -13,5 +13,7 @@ public class GuiOutputWriter : IOutputWriter
 
     public void WriteInfo(string message) => Entries.Add(new LogEntry(LogSeverity.Info, message));
 
+    public void WriteWarning(string message) => Entries.Add(new LogEntry(LogSeverity.Warning, message));
+
     public void Clear() => Entries.Clear();
 }

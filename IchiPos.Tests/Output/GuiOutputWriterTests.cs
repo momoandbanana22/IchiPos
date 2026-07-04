@@ -51,6 +51,21 @@ public class GuiOutputWriterTests
     }
 
     [Fact]
+    public void 正常系_警告メッセージをWarning種別で追加する()
+    {
+        // Arrange
+        var writer = new GuiOutputWriter();
+
+        // Act
+        writer.WriteWarning("非対応の画像形式を除外しました: readme.txt");
+
+        // Assert
+        var entry = Assert.Single(writer.Entries);
+        Assert.Equal(LogSeverity.Warning, entry.Severity);
+        Assert.Equal("非対応の画像形式を除外しました: readme.txt", entry.Message);
+    }
+
+    [Fact]
     public void 正常系_複数回の出力が時系列で追記される()
     {
         // Arrange
