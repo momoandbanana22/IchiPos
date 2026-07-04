@@ -46,7 +46,7 @@ public static class GuiCompositionRoot
             new WindowsClipboardService(),
             imageCleanupService);
 
-        viewModel = new MainWindowViewModel(app, config, textFileReader, outputWriter);
+        viewModel = new MainWindowViewModel(app, config, textFileReader, outputWriter, new TempClipboardImageStore());
         return new MainWindow(viewModel);
     }
 }

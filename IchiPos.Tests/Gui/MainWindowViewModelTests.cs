@@ -21,12 +21,14 @@ public class MainWindowViewModelTests
         Mock<IIchiPosApplication>? app = null,
         Mock<ITextFileReader>? textFileReader = null,
         GuiOutputWriter? outputWriter = null,
-        AppConfig? config = null) =>
+        AppConfig? config = null,
+        Mock<IClipboardImageStore>? clipboardImageStore = null) =>
         new MainWindowViewModel(
             (app ?? new Mock<IIchiPosApplication>()).Object,
             config ?? ValidConfig(),
             (textFileReader ?? new Mock<ITextFileReader>()).Object,
-            outputWriter ?? new GuiOutputWriter());
+            outputWriter ?? new GuiOutputWriter(),
+            (clipboardImageStore ?? new Mock<IClipboardImageStore>()).Object);
 
     // ──────────────────────────────────────────────────────────────────
     // 初期状態(04書 5.3節)
@@ -283,5 +285,104 @@ public class MainWindowViewModelTests
 
         Assert.Equal("編集前の内容", vm.Content);
         Assert.Contains(outputWriter.Entries, e => e.Severity == LogSeverity.Error && e.Message.Contains("ファイルが存在しません"));
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // クリップボード画像貼り付け(04書 G-010)
+    // ──────────────────────────────────────────────────────────────────
+
+    private static System.Windows.Media.Imaging.BitmapSource DummyImage() =>
+        new System.Windows.Media.Imaging.WriteableBitmap(1, 1, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null);
+
+    [Fact]
+    public void 正常系_画像を貼り付けると一時フォルダが画像フォルダパスに設定される()
+    {
+        var mockStore = new Mock<IClipboardImageStore>();
+        mockStore.Setup(x => x.SaveToTempFolder(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1");
+        var vm = BuildViewModel(clipboardImageStore: mockStore);
+
+        vm.PasteImage(DummyImage());
+
+        Assert.Equal(@"C:\temp\paste1", vm.ImageFolderPath);
+    }
+
+    [Fact]
+    public void 正常系_再度貼り付けると前回の一時フォルダを削除する()
+    {
+        var mockStore = new Mock<IClipboardImageStore>();
+        mockStore.SetupSequence(x => x.SaveToTempFolder(It.IsAny<System.Windows.Media.Imaging.BitmapSource>()))
+            .Returns(@"C:\temp\paste1")
+            .Returns(@"C:\temp\paste2");
+        var vm = BuildViewModel(clipboardImageStore: mockStore);
+
+        vm.PasteImage(DummyImage());
+        vm.PasteImage(DummyImage());
+
+        Assert.Equal(@"C:\temp\paste2", vm.ImageFolderPath);
+        mockStore.Verify(x => x.Delete(@"C:\temp\paste1"), Times.Once);
+        mockStore.Verify(x => x.Delete(@"C:\temp\paste2"), Times.Never);
+    }
+
+    [Fact]
+    public void 正常系_貼り付け後にClearImageFolderCommandを実行すると一時フォルダを削除する()
+    {
+        var mockStore = new Mock<IClipboardImageStore>();
+        mockStore.Setup(x => x.SaveToTempFolder(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1");
+        var vm = BuildViewModel(clipboardImageStore: mockStore);
+        vm.PasteImage(DummyImage());
+
+        vm.ClearImageFolderCommand.Execute(null);
+
+        Assert.Null(vm.ImageFolderPath);
+        mockStore.Verify(x => x.Delete(@"C:\temp\paste1"), Times.Once);
+    }
+
+    [Fact]
+    public void 正常系_貼り付け後に画像フォルダを選択すると一時フォルダを削除する()
+    {
+        // 04書 G-003 第3.1節: フォルダ選択・クリップボード画像貼り付けは互いに排他
+        var mockStore = new Mock<IClipboardImageStore>();
+        mockStore.Setup(x => x.SaveToTempFolder(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1");
+        var vm = BuildViewModel(clipboardImageStore: mockStore);
+        vm.PasteImage(DummyImage());
+
+        vm.ImageFolderPath = @"C:\real\folder";
+
+        Assert.Equal(@"C:\real\folder", vm.ImageFolderPath);
+        mockStore.Verify(x => x.Delete(@"C:\temp\paste1"), Times.Once);
+    }
+
+    [Fact]
+    public void 正常系_貼り付けにより削除チェックボックスが有効になる()
+    {
+        var mockStore = new Mock<IClipboardImageStore>();
+        mockStore.Setup(x => x.SaveToTempFolder(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1");
+        var vm = BuildViewModel(clipboardImageStore: mockStore);
+
+        vm.PasteImage(DummyImage());
+
+        Assert.True(vm.IsDeleteCheckboxEnabled);
+    }
+
+    [Fact]
+    public async Task 正常系_投稿中は貼り付けを無視する()
+    {
+        // 04書 G-010 第6節
+        var tcs = new TaskCompletionSource<int>();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<AppConfig>()))
+            .Returns(tcs.Task);
+        var mockStore = new Mock<IClipboardImageStore>();
+        var vm = BuildViewModel(app: mockApp, clipboardImageStore: mockStore);
+        vm.Content = "hello";
+
+        var postTask = vm.PostAsync();
+        vm.PasteImage(DummyImage());
+
+        mockStore.Verify(x => x.SaveToTempFolder(It.IsAny<System.Windows.Media.Imaging.BitmapSource>()), Times.Never);
+        Assert.Null(vm.ImageFolderPath);
+
+        tcs.SetResult(0);
+        await postTask;
     }
 }

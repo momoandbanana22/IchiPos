@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using IchiPos.Application;
 using IchiPos.Config;
 using IchiPos.Content;
@@ -16,10 +17,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly AppConfig _config;
     private readonly ITextFileReader _textFileReader;
     private readonly GuiOutputWriter _outputWriter;
+    private readonly IClipboardImageStore _clipboardImageStore;
     private readonly AsyncRelayCommand _postCommand;
 
     private string _content = string.Empty;
     private string? _imageFolderPath;
+    private string? _pastedImageTempFolder;
     private bool _deleteImagesAfterPost;
     private bool _isBusy;
 
@@ -27,12 +30,14 @@ public class MainWindowViewModel : INotifyPropertyChanged
         IIchiPosApplication app,
         AppConfig config,
         ITextFileReader textFileReader,
-        GuiOutputWriter outputWriter)
+        GuiOutputWriter outputWriter,
+        IClipboardImageStore clipboardImageStore)
     {
         _app = app;
         _config = config;
         _textFileReader = textFileReader;
         _outputWriter = outputWriter;
+        _clipboardImageStore = clipboardImageStore;
 
         _postCommand = new AsyncRelayCommand(PostAsync, () => !IsBusy);
         ClearImageFolderCommand = new RelayCommand(() => ImageFolderPath = null);
@@ -68,9 +73,19 @@ public class MainWindowViewModel : INotifyPropertyChanged
         get => _imageFolderPath;
         set
         {
+            var previousPastedFolder = _pastedImageTempFolder;
+
             if (SetProperty(ref _imageFolderPath, value))
             {
                 OnPropertyChanged(nameof(IsDeleteCheckboxEnabled));
+            }
+
+            // 04書 G-003 第3.1節: フォルダ選択・クリア・貼り付けは互いに排他。
+            // 貼り付けで作成した一時フォルダが今回の変更で不要になった場合は削除する。
+            if (previousPastedFolder != null && previousPastedFolder != value)
+            {
+                _clipboardImageStore.Delete(previousPastedFolder);
+                _pastedImageTempFolder = null;
             }
         }
     }
@@ -130,6 +145,19 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>
+    /// クリップボード画像の貼り付け(04書 G-010)。画像を一時フォルダへ保存し、画像フォルダパスに設定する。
+    /// 投稿処理実行中(IsBusy)は無視する。
+    /// </summary>
+    public void PasteImage(BitmapSource image)
+    {
+        if (IsBusy) return;
+
+        var folder = _clipboardImageStore.SaveToTempFolder(image);
+        ImageFolderPath = folder;
+        _pastedImageTempFolder = folder;
     }
 
     /// <summary>P-03: ファイルから読み込む(04書 G-002 第4節)。読み込み成功時のみ投稿内容を置き換える。</summary>
