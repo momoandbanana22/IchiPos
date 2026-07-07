@@ -51,6 +51,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>全クリア(04書 G-013第3節)実行後、投稿内容欄(P-01)へフォーカスを移すようViewへ要求する。</summary>
+    public event EventHandler? FocusContentRequested;
+
     /// <summary>P-01: 投稿内容。</summary>
     public string Content
     {
@@ -237,6 +240,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         Content = string.Empty;
         ClearImages();
         _outputWriter.Clear();
+        FocusContentRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void ClearImages()

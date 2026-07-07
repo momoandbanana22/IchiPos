@@ -179,6 +179,18 @@ public class MainWindowViewModelTests
         mockStore.Verify(x => x.Delete(@"C:\temp\paste1\pasted.png"), Times.Once);
     }
 
+    [Fact]
+    public void 正常系_ClearAllCommandでFocusContentRequestedイベントが発火する()
+    {
+        var vm = BuildViewModel();
+        var raised = false;
+        vm.FocusContentRequested += (_, _) => raised = true;
+
+        vm.ClearAllCommand.Execute(null);
+
+        Assert.True(raised);
+    }
+
     // ──────────────────────────────────────────────────────────────────
     // ログクリア(04書 G-006 第5節)
     // ──────────────────────────────────────────────────────────────────
