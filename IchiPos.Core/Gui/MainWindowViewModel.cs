@@ -46,6 +46,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         ClearImagesCommand = new RelayCommand(ClearImages);
         ClearContentCommand = new RelayCommand(() => Content = string.Empty);
         ClearLogCommand = new RelayCommand(() => _outputWriter.Clear());
+        ClearAllCommand = new RelayCommand(ClearAll);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -108,6 +109,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     /// <summary>P-14: 投稿内容欄の全消去(04書 G-012)。</summary>
     public ICommand ClearContentCommand { get; }
+
+    /// <summary>P-15: 投稿内容・添付画像・結果ログの一括消去(04書 G-013)。</summary>
+    public ICommand ClearAllCommand { get; }
 
     /// <summary>P-10: ログをクリア(04書 G-006 第5節)。</summary>
     public ICommand ClearLogCommand { get; }
@@ -226,6 +230,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             _clipboardImageStore.Delete(image.FilePath);
         }
+    }
+
+    private void ClearAll()
+    {
+        Content = string.Empty;
+        ClearImages();
+        _outputWriter.Clear();
     }
 
     private void ClearImages()

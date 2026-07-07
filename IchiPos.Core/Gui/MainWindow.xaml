@@ -89,9 +89,14 @@
                        FontSize="11" Foreground="Gray"/>
         </StackPanel>
 
-        <!-- P-08: 投稿する -->
-        <Button Grid.Row="5" Content="投稿する" Command="{Binding PostCommand}"
-                HorizontalAlignment="Right" Padding="16,6" Margin="0,0,0,8"/>
+        <!-- P-15: 全クリア(04書 G-013)、P-08: 投稿する -->
+        <DockPanel Grid.Row="5" Margin="0,0,0,8">
+            <Button x:Name="ClearAllButton" DockPanel.Dock="Left" Content="全クリア"
+                    Command="{Binding ClearAllCommand}"
+                    Padding="8,4" IsEnabled="{Binding IsNotBusy}"/>
+            <Button Content="投稿する" Command="{Binding PostCommand}"
+                    HorizontalAlignment="Right" Padding="16,6"/>
+        </DockPanel>
 
         <!-- P-09〜P-10: 結果ログ -->
         <DockPanel Grid.Row="6" Margin="0,0,0,8">

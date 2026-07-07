@@ -146,6 +146,40 @@ public class MainWindowViewModelTests
     }
 
     // ──────────────────────────────────────────────────────────────────
+    // 全クリア(04書 G-013)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 正常系_ClearAllCommandで投稿内容と添付画像とログを全て消去する()
+    {
+        var outputWriter = new GuiOutputWriter();
+        outputWriter.WriteInfo("消えるべきメッセージ");
+        var vm = BuildViewModel(outputWriter: outputWriter);
+        vm.PasteFiles(new[] { @"C:\real\a.png" });
+        vm.Content = "消えるべき投稿内容";
+
+        vm.ClearAllCommand.Execute(null);
+
+        Assert.Equal(string.Empty, vm.Content);
+        Assert.Empty(vm.AttachedImages);
+        Assert.Empty(vm.LogEntries);
+    }
+
+    [Fact]
+    public void 正常系_ClearAllCommandで添付画像の一時ファイルを削除する()
+    {
+        var mockStore = new Mock<IClipboardImageStore>();
+        mockStore.Setup(x => x.SaveToTempFile(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1\pasted.png");
+        var vm = BuildViewModel(clipboardImageStore: mockStore);
+        vm.PasteImage(DummyImage());
+        vm.PasteFiles(new[] { @"C:\real\a.png" });
+
+        vm.ClearAllCommand.Execute(null);
+
+        mockStore.Verify(x => x.Delete(@"C:\temp\paste1\pasted.png"), Times.Once);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
     // ログクリア(04書 G-006 第5節)
     // ──────────────────────────────────────────────────────────────────
 
