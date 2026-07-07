@@ -41,6 +41,21 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    // 04書 G-014: 投稿内容欄(P-01)にフォーカスがある場合のみ、Ctrl+Enterで投稿する。
+    private void ContentTextBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (!IsPostShortcut(e.Key, Keyboard.Modifiers)) return;
+
+        e.Handled = true;
+        if (_viewModel.PostCommand.CanExecute(null))
+        {
+            _viewModel.PostCommand.Execute(null);
+        }
+    }
+
+    public static bool IsPostShortcut(Key key, ModifierKeys modifiers) =>
+        key == Key.Enter && modifiers == ModifierKeys.Control;
+
     private async void LoadFromFileButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new Microsoft.Win32.OpenFileDialog

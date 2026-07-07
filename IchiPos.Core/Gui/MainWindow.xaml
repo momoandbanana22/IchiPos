@@ -25,7 +25,8 @@
                   Text="{Binding Content, UpdateSourceTrigger=PropertyChanged}"
                   AcceptsReturn="True" TextWrapping="Wrap"
                   Height="120" VerticalScrollBarVisibility="Auto"
-                  IsEnabled="{Binding IsNotBusy}"/>
+                  IsEnabled="{Binding IsNotBusy}"
+                  PreviewKeyDown="ContentTextBox_PreviewKeyDown"/>
 
         <!-- P-02: 文字数表示 -->
         <TextBlock Grid.Row="2" Text="{Binding CharacterCountDisplay}"
