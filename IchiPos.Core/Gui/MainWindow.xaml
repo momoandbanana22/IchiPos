@@ -31,11 +31,16 @@
         <TextBlock Grid.Row="2" Text="{Binding CharacterCountDisplay}"
                    HorizontalAlignment="Right" Margin="0,2,0,8"/>
 
-        <!-- P-03: ファイルから読み込む -->
-        <Button Grid.Row="3" x:Name="LoadFromFileButton" Content="ファイルから読み込む..."
-                Click="LoadFromFileButton_Click"
-                HorizontalAlignment="Left" Padding="8,4" Margin="0,0,0,12"
-                IsEnabled="{Binding IsNotBusy}"/>
+        <!-- P-03: ファイルから読み込む、P-14: 投稿内容クリア(04書 G-012) -->
+        <DockPanel Grid.Row="3" Margin="0,0,0,12">
+            <Button x:Name="ClearContentButton" DockPanel.Dock="Right"
+                    Content="クリア" Command="{Binding ClearContentCommand}"
+                    Padding="8,4" IsEnabled="{Binding IsNotBusy}"/>
+            <Button x:Name="LoadFromFileButton" Content="ファイルから読み込む..."
+                    Click="LoadFromFileButton_Click"
+                    HorizontalAlignment="Left" Padding="8,4" Margin="0,0,4,0"
+                    IsEnabled="{Binding IsNotBusy}"/>
+        </DockPanel>
 
         <!-- P-04〜P-06: 添付画像、P-13: サムネイル一覧(04書 G-003・G-013) -->
         <StackPanel Grid.Row="4" Orientation="Vertical" Margin="0,0,0,4">

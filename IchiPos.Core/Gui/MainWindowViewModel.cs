@@ -44,6 +44,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _postCommand = new AsyncRelayCommand(PostAsync, () => !IsBusy);
         RemoveImageCommand = new RelayCommand<AttachedImage>(RemoveImage);
         ClearImagesCommand = new RelayCommand(ClearImages);
+        ClearContentCommand = new RelayCommand(() => Content = string.Empty);
         ClearLogCommand = new RelayCommand(() => _outputWriter.Clear());
     }
 
@@ -104,6 +105,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     /// <summary>P-06: 添付画像一覧の全解除(04書 G-003 第2節)。</summary>
     public ICommand ClearImagesCommand { get; }
+
+    /// <summary>P-14: 投稿内容欄の全消去(04書 G-012)。</summary>
+    public ICommand ClearContentCommand { get; }
 
     /// <summary>P-10: ログをクリア(04書 G-006 第5節)。</summary>
     public ICommand ClearLogCommand { get; }
