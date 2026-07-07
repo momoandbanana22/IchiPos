@@ -2,5 +2,5 @@ namespace IchiPos;
 
 public static class AppVersion
 {
-    public const string Current = "2.2.4";
+    public const string Current = "2.2.5";
 }
