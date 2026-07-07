@@ -116,6 +116,36 @@ public class MainWindowViewModelTests
     }
 
     // ──────────────────────────────────────────────────────────────────
+    // 投稿内容クリア(04書 G-012)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 正常系_ClearContentCommandで投稿内容を空にする()
+    {
+        var vm = BuildViewModel();
+        vm.Content = "消えるべき投稿内容";
+
+        vm.ClearContentCommand.Execute(null);
+
+        Assert.Equal(string.Empty, vm.Content);
+    }
+
+    [Fact]
+    public void 正常系_ClearContentCommandは添付画像とログには影響しない()
+    {
+        var outputWriter = new GuiOutputWriter();
+        outputWriter.WriteInfo("残るべきメッセージ");
+        var vm = BuildViewModel(outputWriter: outputWriter);
+        vm.PasteFiles(new[] { @"C:\real\a.png" });
+        vm.Content = "消えるべき投稿内容";
+
+        vm.ClearContentCommand.Execute(null);
+
+        Assert.Single(vm.AttachedImages);
+        Assert.Single(vm.LogEntries);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
     // ログクリア(04書 G-006 第5節)
     // ──────────────────────────────────────────────────────────────────
 
