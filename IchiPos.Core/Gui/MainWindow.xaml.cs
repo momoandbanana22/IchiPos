@@ -15,6 +15,7 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         InitializeComponent();
         PreviewKeyDown += MainWindow_PreviewKeyDown;
+        _viewModel.FocusContentRequested += (_, _) => ContentTextBox.Focus();
     }
 
     private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
