@@ -43,7 +43,16 @@ public static class GuiCompositionRoot
             new WindowsClipboardService(),
             imageCleanupService);
 
-        var viewModel = new MainWindowViewModel(app, config, textFileReader, outputWriter, new TempClipboardImageStore(), new ImageFolderReader());
+        var viewModel = new MainWindowViewModel(
+            app,
+            config,
+            textFileReader,
+            outputWriter,
+            new TempClipboardImageStore(),
+            new ImageFolderReader(),
+            new DatePlaceholderReplacer(TimeProvider.System),
+            new FileLastPostStore(),
+            new MessageBoxRepostConfirmation());
         return new MainWindow(viewModel);
     }
 }

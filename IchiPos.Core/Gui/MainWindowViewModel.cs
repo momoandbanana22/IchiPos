@@ -21,6 +21,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly GuiOutputWriter _outputWriter;
     private readonly IClipboardImageStore _clipboardImageStore;
     private readonly IImageFolderReader _imageFolderReader;
+    private readonly IDatePlaceholderReplacer _datePlaceholderReplacer;
+    private readonly ILastPostStore _lastPostStore;
+    private readonly IRepostConfirmation _repostConfirmation;
     private readonly AsyncRelayCommand _postCommand;
 
     private string _content = string.Empty;
@@ -32,7 +35,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
         ITextFileReader textFileReader,
         GuiOutputWriter outputWriter,
         IClipboardImageStore clipboardImageStore,
-        IImageFolderReader imageFolderReader)
+        IImageFolderReader imageFolderReader,
+        IDatePlaceholderReplacer datePlaceholderReplacer,
+        ILastPostStore lastPostStore,
+        IRepostConfirmation repostConfirmation)
     {
         _app = app;
         _config = config;
@@ -40,6 +46,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _outputWriter = outputWriter;
         _clipboardImageStore = clipboardImageStore;
         _imageFolderReader = imageFolderReader;
+        _datePlaceholderReplacer = datePlaceholderReplacer;
+        _lastPostStore = lastPostStore;
+        _repostConfirmation = repostConfirmation;
 
         _postCommand = new AsyncRelayCommand(PostAsync, () => !IsBusy);
         RemoveImageCommand = new RelayCommand<AttachedImage>(RemoveImage);
@@ -119,14 +128,29 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// <summary>P-10: ログをクリア(04書 G-006 第5節)。</summary>
     public ICommand ClearLogCommand { get; }
 
-    /// <summary>投稿実行(04書 G-005)。画像一覧取得〜画像削除までApplication層の共通パイプラインを呼ぶ。</summary>
+    /// <summary>
+    /// 投稿実行(04書 G-005)。画像一覧取得〜画像削除までApplication層の共通パイプラインを呼ぶ。
+    /// パイプラインに入る前に、前回投稿内容と同一なら再投稿の確認を行う(G-015)。
+    /// </summary>
     public async Task PostAsync()
     {
         IsBusy = true;
         try
         {
+            // 実際に投稿されるテキストと同じ形(日付置換済み・末尾トリム済み)に揃えて比較する(G-015第2節)。
+            var contentHash = PostContentHash.Compute(_datePlaceholderReplacer.Replace(Content).TrimEnd());
+            if (_lastPostStore.LoadHash() == contentHash && !_repostConfirmation.ConfirmRepost())
+            {
+                _outputWriter.WriteInfo("投稿を中止しました");
+                return;
+            }
+
             var imagePaths = AttachedImages.Select(i => i.FilePath).ToList();
-            await _app.RunAsync(Content, imagePaths, _config);
+            var exitCode = await _app.RunAsync(Content, imagePaths, _config);
+            if (exitCode == 0)
+            {
+                _lastPostStore.SaveHash(contentHash);
+            }
         }
         finally
         {

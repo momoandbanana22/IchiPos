@@ -25,14 +25,20 @@ public class MainWindowViewModelTests
         GuiOutputWriter? outputWriter = null,
         AppConfig? config = null,
         Mock<IClipboardImageStore>? clipboardImageStore = null,
-        Mock<IImageFolderReader>? imageFolderReader = null) =>
+        Mock<IImageFolderReader>? imageFolderReader = null,
+        IDatePlaceholderReplacer? datePlaceholderReplacer = null,
+        Mock<ILastPostStore>? lastPostStore = null,
+        Mock<IRepostConfirmation>? repostConfirmation = null) =>
         new MainWindowViewModel(
             (app ?? new Mock<IIchiPosApplication>()).Object,
             config ?? ValidConfig(),
             (textFileReader ?? new Mock<ITextFileReader>()).Object,
             outputWriter ?? new GuiOutputWriter(),
             (clipboardImageStore ?? new Mock<IClipboardImageStore>()).Object,
-            (imageFolderReader ?? new Mock<IImageFolderReader>()).Object);
+            (imageFolderReader ?? new Mock<IImageFolderReader>()).Object,
+            datePlaceholderReplacer ?? new DatePlaceholderReplacer(TimeProvider.System),
+            (lastPostStore ?? new Mock<ILastPostStore>()).Object,
+            (repostConfirmation ?? new Mock<IRepostConfirmation>()).Object);
 
     // ──────────────────────────────────────────────────────────────────
     // 初期状態(04書 5.3節)
@@ -664,5 +670,241 @@ public class MainWindowViewModelTests
             "hello",
             It.Is<IReadOnlyList<string>>(p => p.SequenceEqual(new[] { @"C:\real\b.png", @"C:\real\a.png" })),
             config), Times.Once);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // 同一内容再投稿確認(04書 G-015)
+    // ──────────────────────────────────────────────────────────────────
+
+    private sealed class FixedTimeProvider : TimeProvider
+    {
+        private readonly DateTimeOffset _now;
+
+        public FixedTimeProvider(DateTimeOffset now)
+        {
+            _now = now;
+        }
+
+        public override DateTimeOffset GetUtcNow() => _now;
+
+        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+    }
+
+    private static DatePlaceholderReplacer ReplacerAt(int year, int month, int day)
+        => new DatePlaceholderReplacer(new FixedTimeProvider(new DateTimeOffset(year, month, day, 0, 0, 0, TimeSpan.Zero)));
+
+    private static string HashOf(string comparableContent) => PostContentHash.Compute(comparableContent);
+
+    [Fact]
+    public async Task 正常系_前回投稿の記録がない場合は確認せず投稿する()
+    {
+        var config = ValidConfig();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        var store = new Mock<ILastPostStore>();
+        store.Setup(x => x.LoadHash()).Returns((string?)null);
+        var confirmation = new Mock<IRepostConfirmation>();
+        var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store, repostConfirmation: confirmation);
+        vm.Content = "hello";
+
+        await vm.PostAsync();
+
+        confirmation.Verify(x => x.ConfirmRepost(), Times.Never);
+        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_前回と異なる内容の場合は確認せず投稿する()
+    {
+        var config = ValidConfig();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        var store = new Mock<ILastPostStore>();
+        store.Setup(x => x.LoadHash()).Returns(HashOf("別の内容"));
+        var confirmation = new Mock<IRepostConfirmation>();
+        var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store, repostConfirmation: confirmation);
+        vm.Content = "hello";
+
+        await vm.PostAsync();
+
+        confirmation.Verify(x => x.ConfirmRepost(), Times.Never);
+        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_前回と同じ内容で確認にはいと答えた場合は投稿する()
+    {
+        var config = ValidConfig();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        var store = new Mock<ILastPostStore>();
+        store.Setup(x => x.LoadHash()).Returns(HashOf("hello"));
+        var confirmation = new Mock<IRepostConfirmation>();
+        confirmation.Setup(x => x.ConfirmRepost()).Returns(true);
+        var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store, repostConfirmation: confirmation);
+        vm.Content = "hello";
+
+        await vm.PostAsync();
+
+        confirmation.Verify(x => x.ConfirmRepost(), Times.Once);
+        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_前回と同じ内容で確認にいいえと答えた場合は投稿しない()
+    {
+        var config = ValidConfig();
+        var mockApp = new Mock<IIchiPosApplication>();
+        var store = new Mock<ILastPostStore>();
+        store.Setup(x => x.LoadHash()).Returns(HashOf("hello"));
+        var confirmation = new Mock<IRepostConfirmation>();
+        confirmation.Setup(x => x.ConfirmRepost()).Returns(false);
+        var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store, repostConfirmation: confirmation);
+        vm.Content = "hello";
+
+        await vm.PostAsync();
+
+        mockApp.Verify(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task 正常系_確認にいいえと答えた場合は結果ログに中止メッセージを出す()
+    {
+        var outputWriter = new GuiOutputWriter();
+        var store = new Mock<ILastPostStore>();
+        store.Setup(x => x.LoadHash()).Returns(HashOf("hello"));
+        var confirmation = new Mock<IRepostConfirmation>();
+        confirmation.Setup(x => x.ConfirmRepost()).Returns(false);
+        var vm = BuildViewModel(outputWriter: outputWriter, lastPostStore: store, repostConfirmation: confirmation);
+        vm.Content = "hello";
+
+        await vm.PostAsync();
+
+        Assert.Contains(outputWriter.Entries, e => e.Message.Contains("投稿を中止しました"));
+    }
+
+    [Fact]
+    public async Task 正常系_確認にいいえと答えた場合も投稿内容と添付画像は保持される()
+    {
+        var store = new Mock<ILastPostStore>();
+        store.Setup(x => x.LoadHash()).Returns(HashOf("hello"));
+        var confirmation = new Mock<IRepostConfirmation>();
+        confirmation.Setup(x => x.ConfirmRepost()).Returns(false);
+        var vm = BuildViewModel(lastPostStore: store, repostConfirmation: confirmation);
+        vm.Content = "hello";
+        vm.PasteFiles(new[] { @"C:\real\a.png" });
+
+        await vm.PostAsync();
+
+        Assert.Equal("hello", vm.Content);
+        Assert.Single(vm.AttachedImages);
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task 正常系_確認にいいえと答えた場合は前回投稿内容を更新しない()
+    {
+        var store = new Mock<ILastPostStore>();
+        store.Setup(x => x.LoadHash()).Returns(HashOf("hello"));
+        var confirmation = new Mock<IRepostConfirmation>();
+        confirmation.Setup(x => x.ConfirmRepost()).Returns(false);
+        var vm = BuildViewModel(lastPostStore: store, repostConfirmation: confirmation);
+        vm.Content = "hello";
+
+        await vm.PostAsync();
+
+        store.Verify(x => x.SaveHash(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task 正常系_投稿成功時は前回投稿内容として記録する()
+    {
+        var config = ValidConfig();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        var store = new Mock<ILastPostStore>();
+        var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store);
+        vm.Content = "hello";
+
+        await vm.PostAsync();
+
+        store.Verify(x => x.SaveHash(HashOf("hello")), Times.Once);
+    }
+
+    [Fact]
+    public async Task 異常系_投稿失敗時は前回投稿内容を記録しない()
+    {
+        var config = ValidConfig();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(1);
+        var store = new Mock<ILastPostStore>();
+        var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store);
+        vm.Content = "hello";
+
+        await vm.PostAsync();
+
+        store.Verify(x => x.SaveHash(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task 正常系_比較用テキストは末尾の空白改行を除去してから判定する()
+    {
+        // F-006の末尾トリムと同じ形に揃えるため、"hello" と "hello  \r\n" は同一内容とみなす
+        var mockApp = new Mock<IIchiPosApplication>();
+        var store = new Mock<ILastPostStore>();
+        store.Setup(x => x.LoadHash()).Returns(HashOf("hello"));
+        var confirmation = new Mock<IRepostConfirmation>();
+        confirmation.Setup(x => x.ConfirmRepost()).Returns(false);
+        var vm = BuildViewModel(app: mockApp, lastPostStore: store, repostConfirmation: confirmation);
+        vm.Content = "hello  \r\n";
+
+        await vm.PostAsync();
+
+        confirmation.Verify(x => x.ConfirmRepost(), Times.Once);
+        mockApp.Verify(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task 正常系_比較用テキストは日付プレースホルダを置換してから判定する()
+    {
+        // {date}を含む投稿は、置換後の日付が同じ日であれば同一内容とみなす(G-015第2節)
+        var mockApp = new Mock<IIchiPosApplication>();
+        var store = new Mock<ILastPostStore>();
+        store.Setup(x => x.LoadHash()).Returns(HashOf("今日は2026/07/19です"));
+        var confirmation = new Mock<IRepostConfirmation>();
+        confirmation.Setup(x => x.ConfirmRepost()).Returns(false);
+        var vm = BuildViewModel(
+            app: mockApp,
+            datePlaceholderReplacer: ReplacerAt(2026, 7, 19),
+            lastPostStore: store,
+            repostConfirmation: confirmation);
+        vm.Content = "今日は{date}です";
+
+        await vm.PostAsync();
+
+        confirmation.Verify(x => x.ConfirmRepost(), Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_日付プレースホルダの置換結果が異なる日なら同一とみなさない()
+    {
+        var config = ValidConfig();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        var store = new Mock<ILastPostStore>();
+        store.Setup(x => x.LoadHash()).Returns(HashOf("今日は2026/07/19です"));
+        var confirmation = new Mock<IRepostConfirmation>();
+        var vm = BuildViewModel(
+            app: mockApp,
+            config: config,
+            datePlaceholderReplacer: ReplacerAt(2026, 7, 20),
+            lastPostStore: store,
+            repostConfirmation: confirmation);
+        vm.Content = "今日は{date}です";
+
+        await vm.PostAsync();
+
+        confirmation.Verify(x => x.ConfirmRepost(), Times.Never);
+        store.Verify(x => x.SaveHash(HashOf("今日は2026/07/20です")), Times.Once);
     }
 }
