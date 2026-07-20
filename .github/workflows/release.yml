@@ -43,6 +43,11 @@ jobs:
           New-Item -ItemType Directory -Force release\config | Out-Null
           Copy-Item IchiPos.Core\bin\Release\net10.0-windows\win-x64\publish\IchiPos.exe release\
           Copy-Item config\config.yaml.example release\config\
+          # LICENSE は MIT の "included in all copies" 条項を満たすために必須。
+          # README.md は、オフラインでも使い方を参照できるようにするため同梱する
+          # （GitHub上のREADMEはmainの状態のため、配布版と食い違いうる）。
+          Copy-Item LICENSE release\
+          Copy-Item README.md release\
           Compress-Archive -Path release\* -DestinationPath IchiPos-${{ github.ref_name }}.zip
 
       - name: Create Release
