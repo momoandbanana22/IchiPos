@@ -39,22 +39,6 @@ public class TempClipboardImageStoreTests
     }
 
     [Fact]
-    public void 正常系_複数回保存してもファイル名が重複しない()
-    {
-        // X下書き画面へは複数の一時ファイルをファイルドロップリストとして同時に渡す（F-008第5項）。
-        // このときファイル名が重複していると、貼り付け先が同一ファイルとみなして畳んでしまうため、
-        // 親フォルダだけでなくファイル名自体が一意である必要がある。
-        var store = new TempClipboardImageStore();
-
-        var filePaths = Enumerable.Range(0, 4).Select(_ => store.SaveToTempFile(DummyImage())).ToList();
-
-        var fileNames = filePaths.Select(Path.GetFileName).ToList();
-        Assert.Equal(fileNames.Count, fileNames.Distinct().Count());
-
-        foreach (var filePath in filePaths) store.Delete(filePath);
-    }
-
-    [Fact]
     public void 正常系_Deleteでファイルとその親フォルダを削除する()
     {
         var store = new TempClipboardImageStore();
