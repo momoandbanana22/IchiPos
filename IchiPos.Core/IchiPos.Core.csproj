@@ -8,7 +8,8 @@
     <AssemblyName>IchiPos</AssemblyName>
     <UseWindowsForms>true</UseWindowsForms>
     <UseWPF>true</UseWPF>
-    <Version>2.2.1</Version>
+    <!-- AppVersion.Current と一致させる。不一致は AppVersionTests が検出する（#45）。 -->
+    <Version>2.3.0</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <ApplicationIcon>..\icon\IchiPos.ico</ApplicationIcon>

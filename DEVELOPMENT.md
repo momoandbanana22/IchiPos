@@ -70,3 +70,26 @@ PR を作成する前に、以下を確認してください：
 - ビルド設定・CI設定のみの変更
 
 判断に迷う場合は更新する側に倒すこと。
+
+## リリース手順
+
+バージョン番号は以下の**2箇所**にあり、両方を同じ値に更新する。
+
+| 場所 | 用途 |
+|---|---|
+| `IchiPos.Core/AppVersion.cs` の `AppVersion.Current` | `--version` の出力、GUIのバージョン表示（P-11） |
+| `IchiPos.Core/IchiPos.Core.csproj` の `<Version>` | 配布する `IchiPos.exe` のファイルバージョン |
+
+手順は以下のとおり。
+
+1. 上記2箇所を新しいバージョン番号に更新し、`chore: バージョンを X.Y.Z に更新` としてmainへコミットする
+2. `vX.Y.Z` のタグを push する
+3. `.github/workflows/release.yml` がテスト・publish・zip化・リリース作成まで自動実行する
+
+### 更新漏れの検出
+
+過去に `csproj` 側の更新が漏れ、v2.2.2〜v2.3.0 の7リリースで配布exeが 2.2.1 と名乗る状態が続いた（issue #45）。
+再発を防ぐため、以下2つの自動チェックがある。**手順を覚えていなくても、漏れればCIが落ちる。**
+
+- `AppVersionTests`：`AppVersion.Current` と `csproj` の `<Version>` が一致することを検証する。`dotnet test` が走るすべての場所（PR・リリース）で実行される
+- `release.yml` の「Verify version matches tag」：push されたタグ名（`vX.Y.Z`）とバージョン番号が一致することを検証する。タグだけ進めてバージョンを上げ忘れた場合に、publish前で停止する

@@ -19,6 +19,19 @@ jobs:
         with:
           dotnet-version: '10.x'
 
+      # タグ名とバージョン番号のずれ（タグだけ進めてバージョンを上げ忘れる等）を publish 前に止める。
+      # AppVersion.Current と csproj の <Version> の一致は AppVersionTests が検証するため、
+      # ここでは csproj の値とタグ名を突き合わせれば3者の一致が担保される（#45）。
+      - name: Verify version matches tag
+        run: |
+          $csproj = [xml](Get-Content IchiPos.Core/IchiPos.Core.csproj)
+          $version = ($csproj.Project.PropertyGroup.Version | Where-Object { $_ }) -join ''
+          if (-not $version) { throw "csproj から <Version> を取得できませんでした。" }
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "タグ (${{ github.ref_name }}) と csproj の Version ($version) が一致しません。"
+          }
+          Write-Output "バージョン一致: v$version"
+
       - name: Test
         run: dotnet test --configuration Release
 
