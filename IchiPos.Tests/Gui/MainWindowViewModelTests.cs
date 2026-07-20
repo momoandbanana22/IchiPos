@@ -907,4 +907,261 @@ public class MainWindowViewModelTests
         confirmation.Verify(x => x.ConfirmRepost(), Times.Never);
         store.Verify(x => x.SaveHash(HashOf("今日は2026/07/20です")), Times.Once);
     }
+
+    // ──────────────────────────────────────────────────────────────────
+    // 定型文投稿(04書 G-016)
+    // ──────────────────────────────────────────────────────────────────
+
+    private static AppConfig ConfigWithTemplates(params string[] templates)
+    {
+        var config = ValidConfig();
+        config.Templates = templates.ToList();
+        return config;
+    }
+
+    [Fact]
+    public void 初期状態_定型文一覧は設定の内容を登録順のまま公開する()
+    {
+        var vm = BuildViewModel(config: ConfigWithTemplates("おはよう", "おやすみ"));
+
+        Assert.Equal(new[] { "おはよう", "おやすみ" }, vm.Templates);
+    }
+
+    [Fact]
+    public void 初期状態_定型文が0件ならHasTemplatesがfalse()
+    {
+        // G-016第3節第4項: 一覧の代わりに未登録の案内を表示するためのView側の判定に使う。
+        var vm = BuildViewModel(config: ConfigWithTemplates());
+
+        Assert.False(vm.HasTemplates);
+    }
+
+    [Fact]
+    public void 初期状態_定型文が1件以上あればHasTemplatesがtrue()
+    {
+        var vm = BuildViewModel(config: ConfigWithTemplates("おはよう"));
+
+        Assert.True(vm.HasTemplates);
+    }
+
+    [Fact]
+    public async Task 正常系_定型文投稿は定型文テキストを投稿内容として渡す()
+    {
+        var config = ConfigWithTemplates("おはよう", "おやすみ");
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        var vm = BuildViewModel(app: mockApp, config: config);
+
+        await vm.PostTemplateAsync("おやすみ");
+
+        mockApp.Verify(x => x.RunAsync("おやすみ", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_定型文投稿は添付画像を渡さない()
+    {
+        // G-016第4節第4項: 添付画像一覧に画像が残っていても定型文投稿には添付しない。
+        var config = ConfigWithTemplates("おはよう");
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        var vm = BuildViewModel(app: mockApp, config: config);
+        vm.PasteFiles(new[] { @"C:\images\a.png" });
+
+        await vm.PostTemplateAsync("おはよう");
+
+        mockApp.Verify(x => x.RunAsync("おはよう", It.Is<IReadOnlyList<string>>(p => p.Count == 0), config), Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_定型文投稿は投稿内容欄と添付画像一覧を変更しない()
+    {
+        // G-016第4.1節: 押下時点で投稿される内容が定型文テキストのみに一意に定まることを保証する。
+        var config = ConfigWithTemplates("おはよう");
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        var vm = BuildViewModel(app: mockApp, config: config);
+        vm.Content = "入力途中のテキスト";
+        vm.PasteFiles(new[] { @"C:\images\a.png" });
+
+        await vm.PostTemplateAsync("おはよう");
+
+        Assert.Equal("入力途中のテキスト", vm.Content);
+        Assert.Single(vm.AttachedImages);
+        Assert.Equal(@"C:\images\a.png", vm.AttachedImages[0].FilePath);
+    }
+
+    [Fact]
+    public async Task 正常系_定型文投稿中はIsBusyがtrueになる()
+    {
+        // G-016第5節第1項: 二重投稿防止(G-007)の対象とする。
+        var tcs = new TaskCompletionSource<int>();
+        var config = ConfigWithTemplates("おはよう");
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config))
+            .Returns(tcs.Task);
+        var vm = BuildViewModel(app: mockApp, config: config);
+
+        var postTask = vm.PostTemplateAsync("おはよう");
+        Assert.True(vm.IsBusy);
+        Assert.False(vm.IsNotBusy);
+
+        tcs.SetResult(0);
+        await postTask;
+
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task 正常系_投稿中は定型文投稿コマンドを実行できない()
+    {
+        // G-016第5節第1項: 通常の投稿の実行中は全ての定型文の投稿ボタンを無効化する。
+        var tcs = new TaskCompletionSource<int>();
+        var config = ConfigWithTemplates("おはよう");
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config))
+            .Returns(tcs.Task);
+        var vm = BuildViewModel(app: mockApp, config: config);
+        vm.Content = "hello";
+
+        var postTask = vm.PostAsync();
+        Assert.False(vm.PostTemplateCommand.CanExecute("おはよう"));
+
+        tcs.SetResult(0);
+        await postTask;
+
+        Assert.True(vm.PostTemplateCommand.CanExecute("おはよう"));
+    }
+
+    [Fact]
+    public async Task 正常系_定型文投稿の実行中は通常の投稿コマンドを実行できない()
+    {
+        var tcs = new TaskCompletionSource<int>();
+        var config = ConfigWithTemplates("おはよう");
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config))
+            .Returns(tcs.Task);
+        var vm = BuildViewModel(app: mockApp, config: config);
+
+        var postTask = vm.PostTemplateAsync("おはよう");
+        Assert.False(vm.PostCommand.CanExecute(null));
+
+        tcs.SetResult(0);
+        await postTask;
+
+        Assert.True(vm.PostCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task 正常系_定型文投稿が成功したら前回投稿内容として記録する()
+    {
+        // G-016第5節第2項: 前回投稿内容の記録は通常の投稿と共有する。
+        var config = ConfigWithTemplates("おはよう");
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        var store = new Mock<ILastPostStore>();
+        var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store);
+
+        await vm.PostTemplateAsync("おはよう");
+
+        store.Verify(x => x.SaveHash(HashOf("おはよう")), Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_定型文投稿が失敗したら前回投稿内容を記録しない()
+    {
+        var config = ConfigWithTemplates("おはよう");
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(1);
+        var store = new Mock<ILastPostStore>();
+        var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store);
+
+        await vm.PostTemplateAsync("おはよう");
+
+        store.Verify(x => x.SaveHash(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task 正常系_前回と同じ定型文なら再投稿確認を行う()
+    {
+        var config = ConfigWithTemplates("おはよう");
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        var store = new Mock<ILastPostStore>();
+        store.Setup(x => x.LoadHash()).Returns(HashOf("おはよう"));
+        var confirmation = new Mock<IRepostConfirmation>();
+        confirmation.Setup(x => x.ConfirmRepost()).Returns(true);
+        var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store, repostConfirmation: confirmation);
+
+        await vm.PostTemplateAsync("おはよう");
+
+        confirmation.Verify(x => x.ConfirmRepost(), Times.Once);
+        mockApp.Verify(x => x.RunAsync("おはよう", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_定型文の再投稿確認でいいえを選ぶと投稿しない()
+    {
+        var config = ConfigWithTemplates("おはよう");
+        var mockApp = new Mock<IIchiPosApplication>();
+        var store = new Mock<ILastPostStore>();
+        store.Setup(x => x.LoadHash()).Returns(HashOf("おはよう"));
+        var confirmation = new Mock<IRepostConfirmation>();
+        confirmation.Setup(x => x.ConfirmRepost()).Returns(false);
+        var outputWriter = new GuiOutputWriter();
+        var vm = BuildViewModel(
+            app: mockApp,
+            config: config,
+            outputWriter: outputWriter,
+            lastPostStore: store,
+            repostConfirmation: confirmation);
+
+        await vm.PostTemplateAsync("おはよう");
+
+        mockApp.Verify(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()), Times.Never);
+        Assert.Contains(outputWriter.Entries, e => e.Message == "投稿を中止しました");
+    }
+
+    [Fact]
+    public async Task 正常系_通常の投稿の直後に同一内容の定型文を投稿すると確認する()
+    {
+        // G-016第5節第2項: 前回投稿内容の記録は投稿経路ごとに分けない。
+        var config = ConfigWithTemplates("おはよう");
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        // 保存したハッシュをそのまま読み出し、投稿をまたいだ記録の共有を再現する。
+        var store = new Mock<ILastPostStore>();
+        string? savedHash = null;
+        store.Setup(x => x.SaveHash(It.IsAny<string>())).Callback<string>(h => savedHash = h);
+        store.Setup(x => x.LoadHash()).Returns(() => savedHash);
+        var confirmation = new Mock<IRepostConfirmation>();
+        confirmation.Setup(x => x.ConfirmRepost()).Returns(true);
+        var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store, repostConfirmation: confirmation);
+        vm.Content = "おはよう";
+
+        await vm.PostAsync();
+        await vm.PostTemplateAsync("おはよう");
+
+        confirmation.Verify(x => x.ConfirmRepost(), Times.Once);
+    }
+
+    [Fact]
+    public async Task 正常系_定型文の日付プレースホルダは投稿実行時に置換される()
+    {
+        var config = ConfigWithTemplates("今日は{date}です");
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        var store = new Mock<ILastPostStore>();
+        var vm = BuildViewModel(
+            app: mockApp,
+            config: config,
+            datePlaceholderReplacer: ReplacerAt(2026, 7, 20),
+            lastPostStore: store);
+
+        await vm.PostTemplateAsync("今日は{date}です");
+
+        // 置換は投稿処理層(F-013)が行うため、渡すのは未置換のテキストのまま。
+        // 記録するハッシュは置換後のテキストで計算する(G-015第2節)。
+        mockApp.Verify(x => x.RunAsync("今日は{date}です", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
+        store.Verify(x => x.SaveHash(HashOf("今日は2026/07/20です")), Times.Once);
+    }
 }

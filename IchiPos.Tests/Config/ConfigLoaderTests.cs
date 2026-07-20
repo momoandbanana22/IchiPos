@@ -136,6 +136,113 @@ x:
         Directory.Delete(testDir, true);
     }
 
+    // ──────────────────────────────────────────────────────────────────
+    // 定型文(04書 G-016 第2節)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 正常系_定型文を記載順のまま読み込む()
+    {
+        // Arrange
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+templates:
+  - ""おはよう""
+  - ""おやすみ""
+  - ""いってきます""
+");
+        // Act
+        var result = new ConfigLoader().Load(testDir);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(new[] { "おはよう", "おやすみ", "いってきます" }, result.Config!.Templates);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 正常系_定型文が未記載でもエラーにせず0件として読み込む()
+    {
+        // G-016第2節第1項: templatesは任意設定。未記載でも設定読み込みエラーとしない。
+        // Arrange
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+");
+        // Act
+        var result = new ConfigLoader().Load(testDir);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Config!.Templates);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 正常系_空文字や空白のみの定型文は一覧から除外する()
+    {
+        // G-016第2節第4項: 投稿しても投稿前チェックでエラーになるだけの項目は画面に並べない。
+        // Arrange
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+templates:
+  - ""おはよう""
+  - """"
+  - ""   ""
+  - ""おやすみ""
+");
+        // Act
+        var result = new ConfigLoader().Load(testDir);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(new[] { "おはよう", "おやすみ" }, result.Config!.Templates);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 正常系_重複した定型文は除外しない()
+    {
+        // G-016第2節第5項: 重複は除外せず、登録順をそのまま表示順とする。
+        // Arrange
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+templates:
+  - ""おはよう""
+  - ""おはよう""
+");
+        // Act
+        var result = new ConfigLoader().Load(testDir);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(new[] { "おはよう", "おはよう" }, result.Config!.Templates);
+
+        // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
     private static string CreateConfigDir(string yaml)
     {
         var testDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());

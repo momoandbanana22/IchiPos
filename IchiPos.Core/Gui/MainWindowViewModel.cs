@@ -25,6 +25,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly ILastPostStore _lastPostStore;
     private readonly IRepostConfirmation _repostConfirmation;
     private readonly AsyncRelayCommand _postCommand;
+    private readonly AsyncRelayCommand<string> _postTemplateCommand;
 
     private string _content = string.Empty;
     private bool _isBusy;
@@ -51,6 +52,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _repostConfirmation = repostConfirmation;
 
         _postCommand = new AsyncRelayCommand(PostAsync, () => !IsBusy);
+        _postTemplateCommand = new AsyncRelayCommand<string>(text => PostTemplateAsync(text ?? string.Empty), _ => !IsBusy);
         RemoveImageCommand = new RelayCommand<AttachedImage>(RemoveImage);
         ClearImagesCommand = new RelayCommand(ClearImages);
         ClearContentCommand = new RelayCommand(() => Content = string.Empty);
@@ -97,6 +99,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             {
                 OnPropertyChanged(nameof(IsNotBusy));
                 _postCommand.RaiseCanExecuteChanged();
+                _postTemplateCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -112,6 +115,18 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     /// <summary>P-08: 投稿するボタン。</summary>
     public ICommand PostCommand => _postCommand;
+
+    /// <summary>P-17: 定型文一覧(04書 G-016 第3節)。設定の登録順をそのまま表示順とする。</summary>
+    public IReadOnlyList<string> Templates => _config.Templates;
+
+    /// <summary>
+    /// 定型文が1件以上登録されているか(04書 G-016 第3節第4項)。
+    /// falseの場合、Viewは一覧の代わりに未登録の案内を表示する。
+    /// </summary>
+    public bool HasTemplates => Templates.Count > 0;
+
+    /// <summary>P-18: 定型文の投稿ボタン(04書 G-016)。パラメータにその行の定型文テキストを受け取る。</summary>
+    public ICommand PostTemplateCommand => _postTemplateCommand;
 
     /// <summary>サムネイル一覧の個別削除ボタン(04書 G-013)。</summary>
     public ICommand RemoveImageCommand { get; }
@@ -129,24 +144,37 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public ICommand ClearLogCommand { get; }
 
     /// <summary>
-    /// 投稿実行(04書 G-005)。画像一覧取得〜画像削除までApplication層の共通パイプラインを呼ぶ。
+    /// 投稿実行(04書 G-005)。投稿内容欄(P-01)と添付画像一覧(P-13)の現在の内容を投稿する。
+    /// </summary>
+    public Task PostAsync()
+        => ExecutePostAsync(Content, AttachedImages.Select(i => i.FilePath).ToList());
+
+    /// <summary>
+    /// 定型文の投稿実行(04書 G-016)。投稿内容欄(P-01)・添付画像一覧(P-13)は参照も変更もせず、
+    /// 渡された定型文テキストのみを画像添付なしで投稿する(G-016第4.1節)。
+    /// 投稿経路が違うだけで、二重投稿防止(G-007)・再投稿確認(G-015)・投稿処理層は通常の投稿と共通とする。
+    /// </summary>
+    public Task PostTemplateAsync(string templateText)
+        => ExecutePostAsync(templateText, Array.Empty<string>());
+
+    /// <summary>
+    /// 通常の投稿(G-005)と定型文投稿(G-016)で共通の投稿実行。Application層の共通パイプラインを呼ぶ。
     /// パイプラインに入る前に、前回投稿内容と同一なら再投稿の確認を行う(G-015)。
     /// </summary>
-    public async Task PostAsync()
+    private async Task ExecutePostAsync(string content, IReadOnlyList<string> imagePaths)
     {
         IsBusy = true;
         try
         {
             // 実際に投稿されるテキストと同じ形(日付置換済み・末尾トリム済み)に揃えて比較する(G-015第2節)。
-            var contentHash = PostContentHash.Compute(_datePlaceholderReplacer.Replace(Content).TrimEnd());
+            var contentHash = PostContentHash.Compute(_datePlaceholderReplacer.Replace(content).TrimEnd());
             if (_lastPostStore.LoadHash() == contentHash && !_repostConfirmation.ConfirmRepost())
             {
                 _outputWriter.WriteInfo("投稿を中止しました");
                 return;
             }
 
-            var imagePaths = AttachedImages.Select(i => i.FilePath).ToList();
-            var exitCode = await _app.RunAsync(Content, imagePaths, _config);
+            var exitCode = await _app.RunAsync(content, imagePaths, _config);
             if (exitCode == 0)
             {
                 _lastPostStore.SaveHash(contentHash);

@@ -2,20 +2,30 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:IchiPos.Gui"
-        Title="IchiPos" Height="640" Width="560" MinHeight="600" MinWidth="440"
+        Title="IchiPos" Height="680" Width="560" MinHeight="600" MinWidth="440"
         Icon="/IchiPos;component/icon/IchiPos.ico">
     <Window.Resources>
         <local:FilePathToThumbnailConverter x:Key="FilePathToThumbnailConverter"/>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </Window.Resources>
+    <!-- P-16: タブ(04書 5.1節)。結果ログ(P-09・P-10)とバージョン表示(P-11)はタブの外側に置き、
+         どちらのタブを選択していても常に表示する。 -->
     <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TabControl Grid.Row="0" Margin="0,0,0,8">
+        <TabItem Header="投稿">
+        <Grid Margin="8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -98,9 +108,59 @@
         <!-- P-08: 投稿する -->
         <Button Grid.Row="5" Content="投稿する" Command="{Binding PostCommand}"
                 HorizontalAlignment="Right" Padding="16,6" Margin="0,0,0,8"/>
+        </Grid>
+        </TabItem>
+
+        <!-- P-17・P-18: 定型文一覧とその投稿ボタン(04書 G-016)。
+             選択状態を持たず、行の左側の「投稿」ボタン押下だけで投稿が完了する(G-016第1節)。 -->
+        <TabItem Header="定型文">
+            <Grid Margin="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Margin="0,0,0,8" TextWrapping="Wrap" Foreground="Gray" FontSize="11"
+                           Text="設定(config/config.yaml)の templates に登録した定型文を、本文のみで投稿します(投稿タブの入力内容・添付画像は使いません)。"/>
+
+                <!-- 定型文0件のとき(G-016第3節第4項)。一覧の代わりに登録方法を案内する。 -->
+                <TextBlock Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Top"
+                           Text="定型文が登録されていません。config/config.yaml の templates に登録してください">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasTemplates}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding HasTemplates, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <ItemsControl ItemsSource="{Binding Templates}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel Margin="0,0,0,6">
+                                    <Button DockPanel.Dock="Left" Content="投稿" Padding="12,4" Margin="0,0,8,0"
+                                            VerticalAlignment="Top"
+                                            Command="{Binding DataContext.PostTemplateCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}"/>
+                                    <!-- 押下前に投稿内容を確認できるよう、複数行の定型文も省略せず折り返して全文表示する(G-016第3節第3項)。 -->
+                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </TabItem>
+        </TabControl>
 
         <!-- P-09〜P-10: 結果ログ -->
-        <DockPanel Grid.Row="6" Margin="0,0,0,8">
+        <DockPanel Grid.Row="1" Margin="0,0,0,8">
             <DockPanel DockPanel.Dock="Top" LastChildFill="False">
                 <TextBlock Text="結果ログ" VerticalAlignment="Center"/>
                 <Button DockPanel.Dock="Right" Content="ログをクリア" Command="{Binding ClearLogCommand}"
@@ -132,7 +192,7 @@
         </DockPanel>
 
         <!-- P-11: バージョン表示 -->
-        <TextBlock Grid.Row="7" Text="{Binding VersionText}"
+        <TextBlock Grid.Row="2" Text="{Binding VersionText}"
                    HorizontalAlignment="Right" Foreground="Gray"/>
     </Grid>
 </Window>
