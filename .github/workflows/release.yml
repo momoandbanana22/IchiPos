@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+  # タグを打ち直さずにリリースをやり直すための手動トリガー（#41）。
+  # 実行時はタグを ref に指定する: gh workflow run release.yml --ref vX.Y.Z
+  workflow_dispatch:
 
 jobs:
   release:
@@ -24,6 +27,12 @@ jobs:
       # ここでは csproj の値とタグ名を突き合わせれば3者の一致が担保される（#45）。
       - name: Verify version matches tag
         run: |
+          # workflow_dispatch はブランチも ref に指定できてしまうため、タグ以外を弾く。
+          # ブランチで実行すると github.ref_name がブランチ名になり、
+          # そのブランチ名でリリースとzipが作られてしまう。
+          if ("${{ github.ref_type }}" -ne "tag") {
+            throw "リリースはタグに対してのみ実行できます（指定された ref: ${{ github.ref_name }}）。gh workflow run release.yml --ref vX.Y.Z のようにタグを指定してください。"
+          }
           $csproj = [xml](Get-Content IchiPos.Core/IchiPos.Core.csproj)
           $version = ($csproj.Project.PropertyGroup.Version | Where-Object { $_ }) -join ''
           if (-not $version) { throw "csproj から <Version> を取得できませんでした。" }
