@@ -9,7 +9,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <UseWPF>true</UseWPF>
     <!-- AppVersion.Current と一致させる。不一致は AppVersionTests が検出する（#45）。 -->
-    <Version>2.3.0</Version>
+    <Version>2.3.1</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <ApplicationIcon>..\icon\IchiPos.ico</ApplicationIcon>
