@@ -1,12 +1,13 @@
 name: CI
 
 # テストがタグpush時のリリース処理（release.yml）でしか実行されておらず、
-# 変更時点でテストの不足・失敗に気づけなかったため、PR・mainへのpushでも実行する。
+# 変更時点でテストの不足・失敗に気づけなかったため、PRで実行する。
+#
+# mainへのpushでは実行しない。pull_request はPRブランチをmainへマージした結果を
+# テストするため、マージ後のmainは検証済みであり、重複実行になるだけのため。
+# リリース時は release.yml が改めて dotnet test を通してから publish する。
 on:
-  pull_request:
-  push:
-    branches:
-      - main
+  pull_request
 
 jobs:
   test:
