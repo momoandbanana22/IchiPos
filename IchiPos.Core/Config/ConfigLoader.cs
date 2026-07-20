@@ -40,6 +40,12 @@ public class ConfigLoader : IConfigLoader
             if (string.IsNullOrWhiteSpace(config.X.PostUrlBase))
                 return ConfigLoadResult.Failure("設定 x.post_url_base が設定されていません");
 
+            // 定型文(G-016第2節)。任意設定のため未記載でもエラーとしない。
+            // 空文字・空白のみの項目は、投稿しても投稿前チェックでエラーになるだけなので画面に並べない(第4項)。
+            config.Templates = (config.Templates ?? new List<string>())
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .ToList();
+
             return ConfigLoadResult.Success(config);
         }
         catch (Exception ex)
