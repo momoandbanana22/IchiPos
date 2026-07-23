@@ -8,7 +8,8 @@
     <AssemblyName>IchiPos</AssemblyName>
     <UseWindowsForms>true</UseWindowsForms>
     <UseWPF>true</UseWPF>
-    <!-- AppVersion.Current と一致させる。不一致は AppVersionTests が検出する（#45）。 -->
+    <!-- バージョン番号の正典。AppVersion.Current はこの値から実行時に導出される（#52）。
+         リリース時はここだけを更新する。 -->
     <Version>2.3.1</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>

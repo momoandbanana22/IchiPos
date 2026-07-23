@@ -23,8 +23,8 @@ jobs:
           dotnet-version: '10.x'
 
       # タグ名とバージョン番号のずれ（タグだけ進めてバージョンを上げ忘れる等）を publish 前に止める。
-      # AppVersion.Current と csproj の <Version> の一致は AppVersionTests が検証するため、
-      # ここでは csproj の値とタグ名を突き合わせれば3者の一致が担保される（#45）。
+      # AppVersion.Current は csproj の <Version> から導出され、その一致は AppVersionTests が検証する。
+      # ここでは csproj の値とタグ名を突き合わせれば、タグ・csproj・AppVersion.Current の一致が担保される（#52）。
       - name: Verify version matches tag
         run: |
           # workflow_dispatch はブランチも ref に指定できてしまうため、タグ以外を弾く。

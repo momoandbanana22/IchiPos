@@ -18,8 +18,8 @@
 
 - **同じ事実を2箇所に書かない（Single Source of Truth）**
   - 事実の置き場所は1つに決め、他はそこを参照する
-  - どうしても2箇所に持たざるを得ない場合は、**一致していることを自動で検証する**（例: `AppVersionTests`）
-  - 検証は次善策であり、そもそも導出できるなら1箇所にする方がよい
+  - どうしても2箇所に持たざるを得ない場合は、**一致していることを自動で検証する**
+  - 検証は次善策であり、そもそも導出できるなら1箇所にする方がよい（例: バージョン番号は csproj の `<Version>` を正典とし、`AppVersion.Current` はそこから導出する — #52）
 
 ### なぜ SSoT を方針として掲げるか
 
@@ -140,16 +140,17 @@ PR を作成する前に、以下を確認してください：
 
 ## リリース手順
 
-バージョン番号は以下の**2箇所**にあり、両方を同じ値に更新する。
+バージョン番号の正典は `IchiPos.Core/IchiPos.Core.csproj` の `<Version>` **1箇所**。リリース時はここだけを更新する（#52）。
 
 | 場所 | 用途 |
 |---|---|
-| `IchiPos.Core/AppVersion.cs` の `AppVersion.Current` | `--version` の出力、GUIのバージョン表示（P-11） |
-| `IchiPos.Core/IchiPos.Core.csproj` の `<Version>` | 配布する `IchiPos.exe` のファイルバージョン |
+| `IchiPos.Core/IchiPos.Core.csproj` の `<Version>` | 配布する `IchiPos.exe` のファイルバージョン。**バージョン番号の正典** |
+
+`--version` の出力・GUIのバージョン表示（P-11）で使う `AppVersion.Current` は、この `<Version>` から生成されるアセンブリ属性を実行時に読み取って導出する。手で更新する必要はない。
 
 手順は以下のとおり。
 
-1. 上記2箇所を新しいバージョン番号に更新し、`chore: バージョンを X.Y.Z に更新` としてmainへコミットする
+1. csproj の `<Version>` を新しいバージョン番号に更新し、`chore: バージョンを X.Y.Z に更新` としてmainへコミットする
 2. `vX.Y.Z` のタグを push する
 3. `.github/workflows/release.yml` がテスト・publish・zip化・リリース作成まで自動実行する
 
@@ -173,10 +174,11 @@ gh workflow run release.yml --ref vX.Y.Z
 > `workflow_dispatch` は指定した ref にあるワークフローファイルを実行するため、この対応より前のタグには手動実行の口がありません。
 > それらをやり直す必要が生じた場合は、タグの打ち直しが必要です。
 
-### 更新漏れの検出
+### 更新漏れ・取り違えの検出
 
-過去に `csproj` 側の更新が漏れ、v2.2.2〜v2.3.0 の7リリースで配布exeが 2.2.1 と名乗る状態が続いた（issue #45）。
-再発を防ぐため、以下2つの自動チェックがある。**手順を覚えていなくても、漏れればCIが落ちる。**
+過去に `csproj` 側の更新が漏れ、v2.2.2〜v2.3.0 の7リリースで配布exeが 2.2.1 と名乗る状態が続いた（issue #45）。当時はバージョン番号が2箇所にあり、片方だけ更新されたことが原因だった。**#52 で正典を csproj の `<Version>` 1箇所に集約したため、この「2箇所が食い違う」種類の取り違えは構造的に起きなくなった。**
 
-- `AppVersionTests`：`AppVersion.Current` と `csproj` の `<Version>` が一致することを検証する。`dotnet test` が走るすべての場所（PR・リリース）で実行される
-- `release.yml` の「Verify version matches tag」：push されたタグ名（`vX.Y.Z`）とバージョン番号が一致することを検証する。タグだけ進めてバージョンを上げ忘れた場合に、publish前で停止する
+残る「タグだけ進めてバージョンを上げ忘れる」等のずれに対して、以下2つの自動チェックがある。**手順を覚えていなくても、漏れればCIが落ちる。**
+
+- `AppVersionTests`：csproj から導出される `AppVersion.Current` が、csproj の `<Version>` 宣言値と一致することを検証する。導出の配線（アセンブリ属性の生成・解析）が壊れた場合に落ちる。`dotnet test` が走るすべての場所（PR・リリース）で実行される
+- `release.yml` の「Verify version matches tag」：push されたタグ名（`vX.Y.Z`）と csproj の `<Version>` が一致することを検証する。タグだけ進めてバージョンを上げ忘れた場合に、publish前で停止する
