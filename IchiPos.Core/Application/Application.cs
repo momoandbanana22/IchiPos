@@ -142,7 +142,7 @@ public class IchiPosApplication : IIchiPosApplication
     /// <summary>投稿前チェック〜画像削除まで（F-006〜F-011）。CLI/GUI共通の投稿パイプライン。</summary>
     private async Task<int> RunCommonPipelineAsync(string content, List<string> validImagePaths, AppConfig config)
     {
-        // 投稿テキストの自動トリミングは対象外（02書 第6節）だが、入力経路（直接入力・貼り付け・
+        // 投稿テキストの自動トリミングは対象外（02書「v1対象外機能」節）だが、入力経路（直接入力・貼り付け・
         // ファイル読み込み）によらず投稿直前に文末の空白・改行だけを1回だけ除去する例外を設ける（F-006）。
         content = content.TrimEnd();
 
