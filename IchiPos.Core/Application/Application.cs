@@ -187,13 +187,23 @@ public class IchiPosApplication : IIchiPosApplication
         if (validImagePaths.Count > 0)
         {
             var copiedPaths = validImagePaths.Take(XMaxImageAttachCount).ToList();
-            _clipboardService.SetImages(copiedPaths);
             var total = validImagePaths.Count;
             var copiedCount = copiedPaths.Count;
-            if (total <= copiedCount)
-                _outputWriter.WriteInfo($"画像をクリップボードにコピーしました（全{total}枚）。X下書き画面で Ctrl+V で貼り付けてください。");
-            else
-                _outputWriter.WriteInfo($"先頭{copiedCount}枚の画像をクリップボードにコピーしました（全{total}枚）。X下書き画面で Ctrl+V で貼り付けてください。残り{total - copiedCount}枚は手動で添付してください。");
+
+            // コピーの成否を確認し、成功時のみ完了を通知する。失敗（クリップボード競合等）は
+            // 握りつぶさずエラーとして出す(issue #56)。Misskey投稿は成功済みのため終了コードは0のまま。
+            try
+            {
+                _clipboardService.SetImages(copiedPaths);
+                if (total <= copiedCount)
+                    _outputWriter.WriteInfo($"画像をクリップボードにコピーしました（全{total}枚）。X下書き画面で Ctrl+V で貼り付けてください。");
+                else
+                    _outputWriter.WriteInfo($"先頭{copiedCount}枚の画像をクリップボードにコピーしました（全{total}枚）。X下書き画面で Ctrl+V で貼り付けてください。残り{total - copiedCount}枚は手動で添付してください。");
+            }
+            catch (ClipboardCopyException ex)
+            {
+                _outputWriter.WriteError($"画像のクリップボードへのコピーに失敗しました: {ex.Message} 画像はX下書き画面へ手動で添付してください。");
+            }
 
             await _imageCleanupService.RunAsync(validImagePaths);
         }
