@@ -1,0 +1,78 @@
+name: Release Core
+
+# publish → zip → リリース作成の手順を1箇所に集約した共通ワークフロー（SSoT, #76）。
+# 本番リリース（release.yml）と、公開せずに試走するスモークテスト（release-smoke-test.yml）の
+# 両方がこれを呼ぶため、試走で検証した手順がそのまま本番でも使われる。
+on:
+  workflow_call:
+    inputs:
+      dry_run:
+        description: 'true=ドラフトリリースとして試走し公開しない（スモークテスト用）。バージョン検証も省く。'
+        type: boolean
+        default: false
+      release_tag:
+        description: 'リリース名・zip名に使うタグ名。本番は github.ref_name（vX.Y.Z）、試走は合成名を渡す。'
+        type: string
+        required: true
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.x'
+
+      # タグ名とバージョン番号のずれ（タグだけ進めてバージョンを上げ忘れる等）を publish 前に止める。
+      # AppVersion.Current は csproj の <Version> から導出され、その一致は AppVersionTests が検証する。
+      # ここでは csproj の値とタグ名を突き合わせれば、タグ・csproj・AppVersion.Current の一致が担保される（#52）。
+      # 試走(dry_run)は合成タグのため、この検証は対象外にする。
+      - name: Verify version matches tag
+        if: ${{ !inputs.dry_run }}
+        run: |
+          # workflow_dispatch はブランチも ref に指定できてしまうため、タグ以外を弾く。
+          # ブランチで実行すると github.ref_name がブランチ名になり、
+          # そのブランチ名でリリースとzipが作られてしまう。
+          if ("${{ github.ref_type }}" -ne "tag") {
+            throw "リリースはタグに対してのみ実行できます（指定された ref: ${{ github.ref_name }}）。gh workflow run release.yml --ref vX.Y.Z のようにタグを指定してください。"
+          }
+          $csproj = [xml](Get-Content IchiPos.Core/IchiPos.Core.csproj)
+          $version = ($csproj.Project.PropertyGroup.Version | Where-Object { $_ }) -join ''
+          if (-not $version) { throw "csproj から <Version> を取得できませんでした。" }
+          if ("v$version" -ne "${{ inputs.release_tag }}") {
+            throw "タグ (${{ inputs.release_tag }}) と csproj の Version ($version) が一致しません。"
+          }
+          Write-Output "バージョン一致: v$version"
+
+      - name: Test
+        run: dotnet test --configuration Release
+
+      - name: Publish
+        run: dotnet publish IchiPos.Core/IchiPos.Core.csproj -c Release -r win-x64 --self-contained false
+
+      - name: Create zip
+        run: |
+          New-Item -ItemType Directory -Force release\config | Out-Null
+          Copy-Item IchiPos.Core\bin\Release\net10.0-windows\win-x64\publish\IchiPos.exe release\
+          Copy-Item config\config.yaml.example release\config\
+          # LICENSE は MIT の "included in all copies" 条項を満たすために必須。
+          # README.md は、オフラインでも使い方を参照できるようにするため同梱する
+          # （GitHub上のREADMEはmainの状態のため、配布版と食い違いうる）。
+          Copy-Item LICENSE release\
+          Copy-Item README.md release\
+          Compress-Archive -Path release\* -DestinationPath IchiPos-${{ inputs.release_tag }}.zip
+
+      # dry_run=true のときは draft:true でドラフト（利用者に見えない・タグも未作成）として作る。
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          files: IchiPos-${{ inputs.release_tag }}.zip
+          generate_release_notes: true
+          draft: ${{ inputs.dry_run }}

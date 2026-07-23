@@ -1,0 +1,22 @@
+name: actionlint
+
+# ワークフロー YAML の構文・古い/誤った action 記法・run スクリプトの誤りを PR で静的検査する（#77）。
+# ランタイム挙動（action が実際に正しく動くか・リリースが正しく作られるか）は検証しない。
+# そこは release-smoke-test.yml（#76 の A）が担う。両者は #76 の DAR で A+B 同時として採用した。
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run actionlint
+        run: |
+          curl -sSfL "https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash" -o download-actionlint.bash
+          bash download-actionlint.bash 1.7.12
+          ./actionlint -color
