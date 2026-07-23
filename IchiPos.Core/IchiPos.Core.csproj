@@ -10,7 +10,7 @@
     <UseWPF>true</UseWPF>
     <!-- バージョン番号の正典。AppVersion.Current はこの値から実行時に導出される（#52）。
          リリース時はここだけを更新する。 -->
-    <Version>2.3.1</Version>
+    <Version>2.3.2</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <ApplicationIcon>..\icon\IchiPos.ico</ApplicationIcon>
