@@ -129,6 +129,77 @@ public class WindowsClipboardServiceTests : IDisposable
         Assert.Equal(paths, actual);
     }
 
+    // ── issue #56: リトライと失敗の表面化（実クリップボード不要の決定的テスト） ──
+
+    [Fact]
+    public void SetImages_設定が数回サイレントに失敗しても_リトライして最終的に載る()
+    {
+        // 設定はしたが載らない（読み戻しが空）状態が続いても、読み戻し検証で気づいてリトライする。
+        var fake = new FakeClipboard { SilentFailsBeforeSuccess = 2 };
+        var paths = new List<string> { @"C:\a.png", @"C:\b.png" };
+        var service = new WindowsClipboardService(fake.Set, fake.Get, maxAttempts: 5, retryDelayMs: 0);
+
+        service.SetImages(paths);
+
+        Assert.Equal(paths, fake.Stored);
+        Assert.Equal(3, fake.SetCallCount); // 2回サイレント失敗 + 3回目で成功
+    }
+
+    [Fact]
+    public void SetImages_設定が例外を投げても_リトライして最終的に載る()
+    {
+        // クリップボードのオープン失敗（CLIPBRD_E_CANT_OPEN相当）で例外が飛んでもリトライする。
+        var fake = new FakeClipboard { ThrowsBeforeSuccess = 2 };
+        var paths = new List<string> { @"C:\a.png" };
+        var service = new WindowsClipboardService(fake.Set, fake.Get, maxAttempts: 5, retryDelayMs: 0);
+
+        service.SetImages(paths);
+
+        Assert.Equal(paths, fake.Stored);
+    }
+
+    [Fact]
+    public void SetImages_全試行で失敗する場合_握りつぶさず例外を投げる()
+    {
+        // 修正前は失敗を握りつぶして正常終了していた。全リトライ失敗時は例外で表面化する。
+        var fake = new FakeClipboard { AlwaysSilentFail = true };
+        var paths = new List<string> { @"C:\a.png" };
+        var service = new WindowsClipboardService(fake.Set, fake.Get, maxAttempts: 3, retryDelayMs: 0);
+
+        Assert.Throws<ClipboardCopyException>(() => service.SetImages(paths));
+        Assert.Equal(3, fake.SetCallCount); // maxAttempts 回試行した
+    }
+
+    /// <summary>実クリップボードを使わず、設定の失敗・リトライ挙動を決定的に再現するための偽クリップボード。</summary>
+    private sealed class FakeClipboard
+    {
+        private List<string> _stored = new();
+
+        public int SetCallCount { get; private set; }
+
+        /// <summary>成功するまでにサイレントに失敗する（設定しても載らない）回数。</summary>
+        public int SilentFailsBeforeSuccess { get; set; }
+
+        /// <summary>成功するまでに例外を投げる回数。</summary>
+        public int ThrowsBeforeSuccess { get; set; }
+
+        /// <summary>常にサイレント失敗する（載らない）。</summary>
+        public bool AlwaysSilentFail { get; set; }
+
+        public IReadOnlyList<string> Stored => _stored;
+
+        public void Set(IReadOnlyList<string> paths)
+        {
+            SetCallCount++;
+            if (AlwaysSilentFail) return;
+            if (SetCallCount <= ThrowsBeforeSuccess) throw new InvalidOperationException("クリップボードを開けません");
+            if (SetCallCount <= ThrowsBeforeSuccess + SilentFailsBeforeSuccess) return;
+            _stored = paths.ToList();
+        }
+
+        public IReadOnlyList<string> Get() => _stored;
+    }
+
     [SkippableFact]
     public void 正常系_渡した順序どおりにクリップボードへ載る()
     {

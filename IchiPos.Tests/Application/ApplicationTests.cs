@@ -217,6 +217,46 @@ public class ApplicationTests
     }
 
     [Fact]
+    public async Task 正常系_クリップボードコピー失敗時はエラーを出し成功ログを出さない()
+    {
+        // issue #56: コピーが失敗しても「コピーしました」と出ていた。失敗時はエラーを出し、
+        // 成功ログは出さない。Misskey投稿は成功済みなので終了コードは0のまま。
+        var args = new[] { "hello", "--image-path", @"C:\images" };
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+
+        var mockParser = new Mock<ICommandLineParser>();
+        mockParser.Setup(x => x.Parse(args)).Returns(ParseResult.Success("hello", @"C:\images"));
+        var mockContent = new Mock<IContentResolver>();
+        mockContent.Setup(x => x.ResolveAsync("hello")).ReturnsAsync(ContentResolveResult.Success("hello"));
+        var mockFolder = new Mock<IImageFolderReader>();
+        mockFolder.Setup(x => x.Read(@"C:\images")).Returns(ImageFolderReadResult.Success(new List<string> { "a.png" }));
+        var validPaths = new List<string> { @"C:\images\a.png" };
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(validPaths));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
+        var mockClipboard = new Mock<IClipboardService>();
+        mockClipboard.Setup(x => x.SetImages(It.IsAny<IReadOnlyList<string>>()))
+            .Throws(new ClipboardCopyException("クリップボードへのコピーに失敗しました"));
+        var mockOutput = new Mock<IOutputWriter>();
+
+        var app = BuildApp(mockParser, mockContent, mockFolder, mockValidator, mockPrePost, mockMisskey, mockX,
+            mockOutput, mockClipboard);
+        var result = await app.RunAsync(args, config);
+
+        Assert.Equal(0, result);
+        mockOutput.Verify(x => x.WriteError(It.Is<string>(s => s.Contains("コピー"))), Times.Once);
+        mockOutput.Verify(x => x.WriteInfo(It.Is<string>(s => s.Contains("コピーしました"))), Times.Never);
+    }
+
+    [Fact]
     public async Task 正常系_画像なし投稿後はクリップボードを操作しない()
     {
         var args = new[] { "hello" };
