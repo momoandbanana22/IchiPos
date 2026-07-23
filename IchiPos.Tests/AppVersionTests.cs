@@ -1,32 +1,48 @@
-using System.Reflection;
-using Xunit;
+using System.Xml.Linq;
 
 namespace IchiPos.Tests;
 
 /// <summary>
-/// バージョン番号は <c>AppVersion.Current</c>（--version の出力・GUIのP-11）と
-/// <c>IchiPos.Core.csproj</c> の &lt;Version&gt;（配布exeのファイルバージョン）の2箇所にあり、
-/// リリース手順で人手により同期させている。片方の更新漏れを検出するためのテスト。
+/// バージョン番号の正典は <c>IchiPos.Core.csproj</c> の &lt;Version&gt; のみ（#52）。
+/// <c>AppVersion.Current</c>（--version の出力・GUIのP-11）は、csproj の &lt;Version&gt; から
+/// 生成される AssemblyInformationalVersion を実行時に導出するため、二重管理はしていない。
+/// 本テストは、その導出が csproj の宣言値どおりに機能していること（ビルドの配線が壊れていないこと）と、
+/// 形式がセマンティックバージョンであることを検証する。
 /// </summary>
 public class AppVersionTests
 {
     /// <summary>
-    /// csproj の &lt;Version&gt; から生成される AssemblyInformationalVersion を取得する。
-    /// SourceLink 等により "2.3.0+&lt;commit hash&gt;" 形式になるため、'+' 以降を除く。
+    /// 正典である csproj の &lt;Version&gt; をソースツリーから直接読む。
+    /// AppVersion.Current の導出元（アセンブリ属性）とは独立した経路で取得することで、
+    /// 導出が宣言値どおりに機能していることを検証できる。
     /// </summary>
-    private static string CsprojVersion()
+    private static string CsprojDeclaredVersion()
     {
-        var informational = typeof(AppVersion).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
-            .InformationalVersion;
-        return informational.Split('+')[0];
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var csproj = Path.Combine(dir.FullName, "IchiPos.Core", "IchiPos.Core.csproj");
+            if (File.Exists(csproj))
+            {
+                var version = XDocument.Load(csproj)
+                    .Descendants("Version")
+                    .FirstOrDefault()?.Value;
+                return version
+                    ?? throw new InvalidOperationException("csproj に <Version> が見つかりません。");
+            }
+
+            dir = dir.Parent;
+        }
+
+        throw new InvalidOperationException("IchiPos.Core.csproj が見つかりません。");
     }
 
     [Fact]
-    public void AppVersionのCurrentはcsprojのVersionと一致する()
+    public void AppVersionのCurrentはcsprojの宣言値と一致する()
     {
-        // 不一致の場合、--version の出力と配布exeのファイルバージョンが食い違う（#45）。
-        Assert.Equal(AppVersion.Current, CsprojVersion());
+        // csproj が唯一の正典。AppVersion.Current はそこから導出されるため、
+        // 一致しなければ導出（AssemblyInformationalVersion の生成・解析）が壊れている（#52）。
+        Assert.Equal(CsprojDeclaredVersion(), AppVersion.Current);
     }
 
     [Fact]
