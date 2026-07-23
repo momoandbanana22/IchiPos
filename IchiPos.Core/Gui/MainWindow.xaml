@@ -8,7 +8,7 @@
         <local:FilePathToThumbnailConverter x:Key="FilePathToThumbnailConverter"/>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </Window.Resources>
-    <!-- P-16: タブ(04書 5.1節)。結果ログ(P-09・P-10)とバージョン表示(P-11)はタブの外側に置き、
+    <!-- P-16: タブ(04書「ウィンドウ構成」節)。結果ログ(P-09・P-10)とバージョン表示(P-11)はタブの外側に置き、
          どちらのタブを選択していても常に表示する。 -->
     <Grid Margin="12">
         <Grid.RowDefinitions>

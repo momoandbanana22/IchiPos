@@ -12,7 +12,7 @@ using IchiPos.Output;
 
 namespace IchiPos.Gui;
 
-/// <summary>GUIメイン画面のViewModel(04書 第5〜6節の画面項目・機能に対応)。</summary>
+/// <summary>GUIメイン画面のViewModel(04書「画面構成」節・「機能一覧」節の画面項目・機能に対応)。</summary>
 public class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly IIchiPosApplication _app;

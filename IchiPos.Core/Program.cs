@@ -8,7 +8,7 @@ using IchiPos.Post;
 using IchiPos.Startup;
 using IchiPos.Validation;
 
-// 引数なし起動はGUIモード、引数あり起動はCLIモードとする(04書 4.1節)。
+// 引数なし起動はGUIモード、引数あり起動はCLIモードとする(04書「モード判定」節)。
 if (new LaunchModeSelector().Determine(args) == LaunchMode.Gui)
 {
     var exitCode = 0;
@@ -20,7 +20,7 @@ if (new LaunchModeSelector().Determine(args) == LaunchMode.Gui)
 }
 
 // 実行ファイルはGUIサブシステムのため、CLIモードでは起動直後に
-// 呼び出し元のコンソールへアタッチする(09.2節)。
+// 呼び出し元のコンソールへアタッチする(04書「実行ファイル構成」節)。
 ConsoleAttachment.Ensure(new Win32ConsoleAttacher());
 
 var httpClient = new HttpClient();
