@@ -1,0 +1,54 @@
+name: Release Smoke Test
+
+# release-core.yml を dry_run=true で試走し、リリース公開の仕組み（publish → zip →
+# action-gh-release）が壊れていないかを、実リリースを公開せずに検証する（#76 の A）。
+# 本番と同じ共通ワークフローを使うため、ここで通れば本番の該当手順も基本的に通る。
+#
+# ワークフローを変更する PR で自動実行し、手動でも起動できる。
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+# ドラフトリリースの作成・削除に必要（既定の read-only を write に昇格する）。
+permissions:
+  contents: write
+
+jobs:
+  smoke:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-core.yml
+    with:
+      dry_run: true
+      # 実タグと衝突しない一意な合成名。ドラフトのためgitタグは作られない。
+      release_tag: smoke-test-${{ github.run_id }}
+
+  verify-and-cleanup:
+    needs: smoke
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: smoke-test-${{ github.run_id }}
+    steps:
+      # smoke が成功したなら、ドラフトが期待どおりのアセット名で作られているかを検証する。
+      - name: ドラフトリリースを検証
+        if: ${{ needs.smoke.result == 'success' }}
+        run: |
+          asset=$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[].name')
+          echo "作成されたアセット: $asset"
+          if [ "$asset" != "IchiPos-$TAG.zip" ]; then
+            echo "::error::期待したアセット名 IchiPos-$TAG.zip と一致しません（実際: $asset）"
+            exit 1
+          fi
+          echo "スモークテスト成功: ドラフトリリースとアセットが正しく作成された"
+
+      # 成否にかかわらず、試走で作ったドラフトを必ず後始末する。
+      - name: ドラフトリリースを削除
+        if: ${{ always() }}
+        run: |
+          gh release delete "$TAG" --repo "${{ github.repository }}" --yes --cleanup-tag || true

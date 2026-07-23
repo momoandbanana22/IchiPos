@@ -1,5 +1,7 @@
 name: Release
 
+# 本番リリース。手順は release-core.yml（共通ワークフロー）に集約している（SSoT, #76）。
+# ここは「タグ push / 手動実行を受けて、本番モード（dry_run=false）で core を呼ぶ」だけ。
 on:
   push:
     tags:
@@ -10,57 +12,9 @@ on:
 
 jobs:
   release:
-    runs-on: windows-latest
     permissions:
       contents: write
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: '10.x'
-
-      # タグ名とバージョン番号のずれ（タグだけ進めてバージョンを上げ忘れる等）を publish 前に止める。
-      # AppVersion.Current は csproj の <Version> から導出され、その一致は AppVersionTests が検証する。
-      # ここでは csproj の値とタグ名を突き合わせれば、タグ・csproj・AppVersion.Current の一致が担保される（#52）。
-      - name: Verify version matches tag
-        run: |
-          # workflow_dispatch はブランチも ref に指定できてしまうため、タグ以外を弾く。
-          # ブランチで実行すると github.ref_name がブランチ名になり、
-          # そのブランチ名でリリースとzipが作られてしまう。
-          if ("${{ github.ref_type }}" -ne "tag") {
-            throw "リリースはタグに対してのみ実行できます（指定された ref: ${{ github.ref_name }}）。gh workflow run release.yml --ref vX.Y.Z のようにタグを指定してください。"
-          }
-          $csproj = [xml](Get-Content IchiPos.Core/IchiPos.Core.csproj)
-          $version = ($csproj.Project.PropertyGroup.Version | Where-Object { $_ }) -join ''
-          if (-not $version) { throw "csproj から <Version> を取得できませんでした。" }
-          if ("v$version" -ne "${{ github.ref_name }}") {
-            throw "タグ (${{ github.ref_name }}) と csproj の Version ($version) が一致しません。"
-          }
-          Write-Output "バージョン一致: v$version"
-
-      - name: Test
-        run: dotnet test --configuration Release
-
-      - name: Publish
-        run: dotnet publish IchiPos.Core/IchiPos.Core.csproj -c Release -r win-x64 --self-contained false
-
-      - name: Create zip
-        run: |
-          New-Item -ItemType Directory -Force release\config | Out-Null
-          Copy-Item IchiPos.Core\bin\Release\net10.0-windows\win-x64\publish\IchiPos.exe release\
-          Copy-Item config\config.yaml.example release\config\
-          # LICENSE は MIT の "included in all copies" 条項を満たすために必須。
-          # README.md は、オフラインでも使い方を参照できるようにするため同梱する
-          # （GitHub上のREADMEはmainの状態のため、配布版と食い違いうる）。
-          Copy-Item LICENSE release\
-          Copy-Item README.md release\
-          Compress-Archive -Path release\* -DestinationPath IchiPos-${{ github.ref_name }}.zip
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v3
-        with:
-          files: IchiPos-${{ github.ref_name }}.zip
-          generate_release_notes: true
+    uses: ./.github/workflows/release-core.yml
+    with:
+      dry_run: false
+      release_tag: ${{ github.ref_name }}

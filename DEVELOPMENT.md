@@ -185,3 +185,14 @@ gh workflow run release.yml --ref vX.Y.Z
 
 - `AppVersionTests`：csproj から導出される `AppVersion.Current` が、csproj の `<Version>` 宣言値と一致することを検証する。導出の配線（アセンブリ属性の生成・解析）が壊れた場合に落ちる。`dotnet test` が走るすべての場所（PR・リリース）で実行される
 - `release.yml` の「Verify version matches tag」：push されたタグ名（`vX.Y.Z`）と csproj の `<Version>` が一致することを検証する。タグだけ進めてバージョンを上げ忘れた場合に、publish前で停止する
+
+### ワークフロー変更の事前検証（スモークテスト・actionlint）
+
+publish → zip → リリース作成の手順は `release-core.yml`（`workflow_call` の共通ワークフロー）に集約している。本番リリース（`release.yml`）と試走（`release-smoke-test.yml`）が同じ手順を共有するため、試走で通った手順がそのまま本番でも使われる（SSoT）。
+
+`.github/workflows/**` を変更する PR では、以下が自動で走る。
+
+- `release-smoke-test.yml`：`release-core.yml` を **dry_run（ドラフトリリース）で試走**し、`action-gh-release` 等のリリース公開の仕組みが壊れていないかを**実リリースを公開せずに**検証する。作成したドラフトはアセット名を検証したうえで削除する。
+- `actionlint`：ワークフロー YAML の構文・古い/誤った action 記法・run スクリプトの誤りを静的検査する。
+
+これにより、リリース周りの変更を「次の実リリース」を待たずにマージ前へ検証できる（#76 / #77）。ただし本番のみのステップ（`Verify version matches tag`、`draft:false`）はスモークテストでは走らないため、そこは従来どおり実リリース時に確認する。
