@@ -5,6 +5,22 @@ namespace IchiPos.Tests.Output;
 
 public class GuiOutputWriterTests
 {
+    private sealed class FixedTimeProvider : TimeProvider
+    {
+        private readonly DateTimeOffset _now;
+
+        public FixedTimeProvider(DateTimeOffset now)
+        {
+            _now = now;
+        }
+
+        public override DateTimeOffset GetUtcNow() => _now;
+
+        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+    }
+
+    private static readonly DateTimeOffset FixedNow = new(2026, 7, 29, 23, 45, 1, TimeSpan.Zero);
+
     [Fact]
     public void 正常系_成功メッセージをSuccess種別で追加する()
     {
@@ -95,5 +111,39 @@ public class GuiOutputWriterTests
 
         // Assert
         Assert.Empty(writer.Entries);
+    }
+
+    [Fact]
+    public void 正常系_ログ行に出力時点の日時が記録される()
+    {
+        // Arrange
+        var writer = new GuiOutputWriter(new FixedTimeProvider(FixedNow));
+
+        // Act
+        writer.WriteSuccess("Misskey投稿成功: note123");
+
+        // Assert
+        var entry = Assert.Single(writer.Entries);
+        Assert.Equal(FixedNow, entry.Timestamp);
+        Assert.Equal("[2026/07/29 23:45:01] Misskey投稿成功: note123", entry.DisplayText);
+    }
+
+    [Fact]
+    public void 正常系_すべての種別のログ行の先頭に日時が付く()
+    {
+        // Arrange
+        var writer = new GuiOutputWriter(new FixedTimeProvider(FixedNow));
+
+        // Act
+        writer.WriteInfo("情報");
+        writer.WriteSuccess("成功");
+        writer.WriteWarning("警告");
+        writer.WriteError("エラー");
+
+        // Assert
+        Assert.Equal("[2026/07/29 23:45:01] 情報", writer.Entries[0].DisplayText);
+        Assert.Equal("[2026/07/29 23:45:01] 成功", writer.Entries[1].DisplayText);
+        Assert.Equal("[2026/07/29 23:45:01] 警告", writer.Entries[2].DisplayText);
+        Assert.Equal("[2026/07/29 23:45:01] エラー", writer.Entries[3].DisplayText);
     }
 }
