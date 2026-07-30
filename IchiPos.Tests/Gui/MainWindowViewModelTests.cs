@@ -28,7 +28,8 @@ public class MainWindowViewModelTests
         Mock<IImageFolderReader>? imageFolderReader = null,
         IDatePlaceholderReplacer? datePlaceholderReplacer = null,
         Mock<ILastPostStore>? lastPostStore = null,
-        Mock<IRepostConfirmation>? repostConfirmation = null) =>
+        Mock<IRepostConfirmation>? repostConfirmation = null,
+        Mock<IConfigReloader>? configReloader = null) =>
         new MainWindowViewModel(
             (app ?? new Mock<IIchiPosApplication>()).Object,
             config ?? ValidConfig(),
@@ -38,7 +39,8 @@ public class MainWindowViewModelTests
             (imageFolderReader ?? new Mock<IImageFolderReader>()).Object,
             datePlaceholderReplacer ?? new DatePlaceholderReplacer(TimeProvider.System),
             (lastPostStore ?? new Mock<ILastPostStore>()).Object,
-            (repostConfirmation ?? new Mock<IRepostConfirmation>()).Object);
+            (repostConfirmation ?? new Mock<IRepostConfirmation>()).Object,
+            (configReloader ?? new Mock<IConfigReloader>()).Object);
 
     // ──────────────────────────────────────────────────────────────────
     // 初期状態(04書「画面項目一覧」節)
@@ -1163,5 +1165,166 @@ public class MainWindowViewModelTests
         // 記録するハッシュは置換後のテキストで計算する(G-015第2節)。
         mockApp.Verify(x => x.RunAsync("今日は{date}です", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
         store.Verify(x => x.SaveHash(HashOf("今日は2026/07/20です")), Times.Once);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // 設定再読み込み(04書 G-017)
+    // ──────────────────────────────────────────────────────────────────
+
+    private static AppConfig ConfigWithLimits(int misskeyMax, int xMax)
+    {
+        var config = ValidConfig();
+        config.Limits = new LimitsConfig { MisskeyMaxLength = misskeyMax, XMaxLength = xMax };
+        return config;
+    }
+
+    private static Mock<IConfigReloader> ReloaderReturning(AppConfig config)
+    {
+        var reloader = new Mock<IConfigReloader>();
+        reloader.Setup(x => x.Reload()).Returns(ConfigLoadResult.Success(config));
+        return reloader;
+    }
+
+    private static Mock<IConfigReloader> ReloaderFailing(string errorMessage)
+    {
+        var reloader = new Mock<IConfigReloader>();
+        reloader.Setup(x => x.Reload()).Returns(ConfigLoadResult.Failure(errorMessage));
+        return reloader;
+    }
+
+    [Fact]
+    public void 正常系_再読み込み成功時_定型文一覧が新しい設定に更新される()
+    {
+        // G-017第5節第2項: 新しい設定の templates で一覧を作り直す。
+        var reloader = ReloaderReturning(ConfigWithTemplates("おはよう", "おやすみ"));
+        var vm = BuildViewModel(config: ConfigWithTemplates(), configReloader: reloader);
+
+        vm.ReloadConfig();
+
+        Assert.Equal(new[] { "おはよう", "おやすみ" }, vm.Templates);
+        Assert.True(vm.HasTemplates);
+    }
+
+    [Fact]
+    public void 正常系_再読み込み成功時_文字数上限が新しい設定で再計算される()
+    {
+        // G-017第5節第1項: Misskey/Xの短い方を新しい設定値で再計算する(F-006と同じ算出方法)。
+        var reloader = ReloaderReturning(ConfigWithLimits(misskeyMax: 5000, xMax: 140));
+        var vm = BuildViewModel(config: ConfigWithLimits(misskeyMax: 5000, xMax: 280), configReloader: reloader);
+        vm.Content = "hello";
+        Assert.Equal("5 / 280 文字", vm.CharacterCountDisplay);
+
+        vm.ReloadConfig();
+
+        Assert.Equal("5 / 140 文字", vm.CharacterCountDisplay);
+    }
+
+    [Fact]
+    public void 正常系_再読み込み成功時_設定依存プロパティのPropertyChangedが発火する()
+    {
+        var reloader = ReloaderReturning(ConfigWithTemplates("おはよう"));
+        var vm = BuildViewModel(config: ConfigWithTemplates(), configReloader: reloader);
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.ReloadConfig();
+
+        Assert.Contains(nameof(MainWindowViewModel.Templates), raised);
+        Assert.Contains(nameof(MainWindowViewModel.HasTemplates), raised);
+        Assert.Contains(nameof(MainWindowViewModel.CharacterCountDisplay), raised);
+    }
+
+    [Fact]
+    public void 正常系_再読み込み成功時_成功メッセージをログに出す()
+    {
+        var outputWriter = new GuiOutputWriter();
+        var reloader = ReloaderReturning(ValidConfig());
+        var vm = BuildViewModel(outputWriter: outputWriter, configReloader: reloader);
+
+        vm.ReloadConfig();
+
+        Assert.Contains(outputWriter.Entries, e => e.Severity == LogSeverity.Success && e.Message.Contains("再読み込み"));
+    }
+
+    [Fact]
+    public void 異常系_再読み込み失敗時_設定を維持する()
+    {
+        // G-017第4節: 失敗時は現在の設定をそのまま維持する(部分適用しない)。
+        var reloader = ReloaderFailing("設定ファイルが存在しません");
+        var vm = BuildViewModel(config: ConfigWithTemplates("おはよう"), configReloader: reloader);
+        vm.Content = "hello";
+
+        vm.ReloadConfig();
+
+        Assert.Equal(new[] { "おはよう" }, vm.Templates);
+        Assert.Equal("5 / 280 文字", vm.CharacterCountDisplay);
+    }
+
+    [Fact]
+    public void 異常系_再読み込み失敗時_エラーをログに出し成功メッセージは出さない()
+    {
+        var outputWriter = new GuiOutputWriter();
+        var reloader = ReloaderFailing("設定ファイルが存在しません");
+        var vm = BuildViewModel(outputWriter: outputWriter, configReloader: reloader);
+
+        vm.ReloadConfig();
+
+        Assert.Contains(outputWriter.Entries, e => e.Severity == LogSeverity.Error && e.Message.Contains("設定ファイルが存在しません"));
+        Assert.DoesNotContain(outputWriter.Entries, e => e.Severity == LogSeverity.Success);
+    }
+
+    [Fact]
+    public void 正常系_再読み込みは投稿内容と添付画像を変更しない()
+    {
+        // G-017第7節: 置き換えるのは設定のみ。P-01・P-13は再読み込みの前後で変化しない。
+        var reloader = ReloaderReturning(ConfigWithTemplates("おはよう"));
+        var vm = BuildViewModel(configReloader: reloader);
+        vm.Content = "入力途中のテキスト";
+        vm.PasteFiles(new[] { @"C:\real\a.png" });
+
+        vm.ReloadConfig();
+
+        Assert.Equal("入力途中のテキスト", vm.Content);
+        Assert.Equal(new[] { @"C:\real\a.png" }, vm.AttachedImages.Select(i => i.FilePath));
+    }
+
+    [Fact]
+    public async Task 正常系_投稿中はReloadConfigCommandを実行できない()
+    {
+        // G-017第6節: 投稿処理の実行中(IsBusy)は無効化する。
+        var tcs = new TaskCompletionSource<int>();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
+            .Returns(tcs.Task);
+        var vm = BuildViewModel(app: mockApp);
+        vm.Content = "hello";
+
+        Assert.True(vm.ReloadConfigCommand.CanExecute(null));
+
+        var postTask = vm.PostAsync();
+        Assert.False(vm.ReloadConfigCommand.CanExecute(null));
+
+        tcs.SetResult(0);
+        await postTask;
+
+        Assert.True(vm.ReloadConfigCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task 正常系_再読み込み成功後の投稿は新しい設定を渡す()
+    {
+        // 設定の差し替えが投稿処理にも反映されること(_configの差し替え)を検証する。
+        var oldConfig = ConfigWithTemplates();
+        var newConfig = ConfigWithTemplates("おはよう");
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>())).ReturnsAsync(0);
+        var vm = BuildViewModel(app: mockApp, config: oldConfig, configReloader: ReloaderReturning(newConfig));
+        vm.Content = "hello";
+
+        vm.ReloadConfig();
+        await vm.PostAsync();
+
+        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), newConfig), Times.Once);
+        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), oldConfig), Times.Never);
     }
 }

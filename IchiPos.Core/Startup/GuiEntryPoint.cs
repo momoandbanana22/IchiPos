@@ -7,7 +7,8 @@ public static class GuiEntryPoint
 {
     public static int Run(string baseDirectory)
     {
-        var configResult = new ConfigLoader().Load(baseDirectory);
+        var configLoader = new ConfigLoader();
+        var configResult = configLoader.Load(baseDirectory);
         if (!configResult.IsSuccess)
         {
             System.Windows.MessageBox.Show(
@@ -18,7 +19,9 @@ public static class GuiEntryPoint
             return 1;
         }
 
-        var mainWindow = GuiCompositionRoot.BuildMainWindow(configResult.Config!);
+        // 起動後の再読み込み(04書 G-017)は、起動時と同じ ConfigLoader・同じベースディレクトリで再実行する。
+        var configReloader = new ConfigReloader(configLoader, baseDirectory);
+        var mainWindow = GuiCompositionRoot.BuildMainWindow(configResult.Config!, configReloader);
         var application = new System.Windows.Application();
         return application.Run(mainWindow);
     }

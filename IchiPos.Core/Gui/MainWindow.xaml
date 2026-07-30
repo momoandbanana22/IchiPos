@@ -159,12 +159,15 @@
         </TabItem>
         </TabControl>
 
-        <!-- P-09〜P-10: 結果ログ -->
+        <!-- P-09〜P-10・P-19: 結果ログ。P-19「設定を再読み込み」(G-017)はヘッダ行の「ログをクリア」の左に置く。 -->
         <DockPanel Grid.Row="1" Margin="0,0,0,8">
             <DockPanel DockPanel.Dock="Top" LastChildFill="False">
                 <TextBlock Text="結果ログ" VerticalAlignment="Center"/>
+                <!-- 「ログをクリア」を先にDock=Rightするため最も右へ、続く「設定を再読み込み」はその左に並ぶ。 -->
                 <Button DockPanel.Dock="Right" Content="ログをクリア" Command="{Binding ClearLogCommand}"
-                        Padding="6,2" HorizontalAlignment="Right"/>
+                        Padding="6,2"/>
+                <Button DockPanel.Dock="Right" Content="設定を再読み込み" Command="{Binding ReloadConfigCommand}"
+                        Padding="6,2" Margin="0,0,4,0" IsEnabled="{Binding IsNotBusy}"/>
             </DockPanel>
             <ListBox ItemsSource="{Binding LogEntries}" IsEnabled="True" MinHeight="100" MaxHeight="180">
                 <ListBox.ItemTemplate>
