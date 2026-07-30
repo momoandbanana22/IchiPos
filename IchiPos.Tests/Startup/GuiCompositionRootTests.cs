@@ -1,6 +1,7 @@
 using IchiPos.Config;
 using IchiPos.Gui;
 using IchiPos.Startup;
+using Moq;
 using Xunit;
 
 namespace IchiPos.Tests.Startup;
@@ -50,7 +51,7 @@ public class GuiCompositionRootTests
         var config = ValidConfig();
 
         // Act
-        var (error, window) = RunOnSta(() => GuiCompositionRoot.BuildMainWindow(config));
+        var (error, window) = RunOnSta(() => GuiCompositionRoot.BuildMainWindow(config, Mock.Of<IConfigReloader>()));
 
         // Assert
         Assert.Null(error);
@@ -66,7 +67,7 @@ public class GuiCompositionRootTests
         // Act
         // WindowのDataContext(DependencyProperty)は生成スレッドでしか読めないため、STAスレッド内で取り出す。
         var (error, viewModel) = RunOnSta(() =>
-            (MainWindowViewModel)GuiCompositionRoot.BuildMainWindow(config).DataContext);
+            (MainWindowViewModel)GuiCompositionRoot.BuildMainWindow(config, Mock.Of<IConfigReloader>()).DataContext);
 
         // Assert
         Assert.Null(error);
@@ -83,7 +84,7 @@ public class GuiCompositionRootTests
 
         // Act
         var (error, viewModel) = RunOnSta(() =>
-            (MainWindowViewModel)GuiCompositionRoot.BuildMainWindow(config).DataContext);
+            (MainWindowViewModel)GuiCompositionRoot.BuildMainWindow(config, Mock.Of<IConfigReloader>()).DataContext);
 
         // Assert
         Assert.Null(error);

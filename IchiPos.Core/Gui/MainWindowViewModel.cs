@@ -16,7 +16,6 @@ namespace IchiPos.Gui;
 public class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly IIchiPosApplication _app;
-    private readonly AppConfig _config;
     private readonly ITextFileReader _textFileReader;
     private readonly GuiOutputWriter _outputWriter;
     private readonly IClipboardImageStore _clipboardImageStore;
@@ -24,9 +23,13 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly IDatePlaceholderReplacer _datePlaceholderReplacer;
     private readonly ILastPostStore _lastPostStore;
     private readonly IRepostConfirmation _repostConfirmation;
+    private readonly IConfigReloader _configReloader;
     private readonly AsyncRelayCommand _postCommand;
     private readonly AsyncRelayCommand<string> _postTemplateCommand;
+    private readonly RelayCommand _reloadConfigCommand;
 
+    // 設定は起動後に再読み込み(04書 G-017)で差し替わりうるため readonly にしない。
+    private AppConfig _config;
     private string _content = string.Empty;
     private bool _isBusy;
 
@@ -39,7 +42,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         IImageFolderReader imageFolderReader,
         IDatePlaceholderReplacer datePlaceholderReplacer,
         ILastPostStore lastPostStore,
-        IRepostConfirmation repostConfirmation)
+        IRepostConfirmation repostConfirmation,
+        IConfigReloader configReloader)
     {
         _app = app;
         _config = config;
@@ -50,9 +54,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _datePlaceholderReplacer = datePlaceholderReplacer;
         _lastPostStore = lastPostStore;
         _repostConfirmation = repostConfirmation;
+        _configReloader = configReloader;
 
         _postCommand = new AsyncRelayCommand(PostAsync, () => !IsBusy);
         _postTemplateCommand = new AsyncRelayCommand<string>(text => PostTemplateAsync(text ?? string.Empty), _ => !IsBusy);
+        _reloadConfigCommand = new RelayCommand(ReloadConfig, () => !IsBusy);
         RemoveImageCommand = new RelayCommand<AttachedImage>(RemoveImage);
         ClearImagesCommand = new RelayCommand(ClearImages);
         ClearContentCommand = new RelayCommand(() => Content = string.Empty);
@@ -100,6 +106,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 OnPropertyChanged(nameof(IsNotBusy));
                 _postCommand.RaiseCanExecuteChanged();
                 _postTemplateCommand.RaiseCanExecuteChanged();
+                _reloadConfigCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -142,6 +149,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     /// <summary>P-10: ログをクリア(04書 G-006 第5節)。</summary>
     public ICommand ClearLogCommand { get; }
+
+    /// <summary>P-19: 設定を再読み込み(04書 G-017)。投稿処理中(IsBusy)は実行できない(G-017 第6節)。</summary>
+    public ICommand ReloadConfigCommand => _reloadConfigCommand;
 
     /// <summary>
     /// 投稿実行(04書 G-005)。投稿内容欄(P-01)と添付画像一覧(P-13)の現在の内容を投稿する。
@@ -274,6 +284,28 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             _outputWriter.WriteError($"投稿内容エラー: {result.ErrorMessage}");
         }
+    }
+
+    /// <summary>
+    /// P-19: 設定の再読み込み(04書 G-017)。起動時と同じ設定読み込み処理を再実行する。
+    /// 成功時は設定を差し替え、設定に依存する表示(文字数上限 P-02・定型文一覧 P-17)を更新する(G-017 第5節)。
+    /// 失敗時はアプリを終了させず、現在の設定をそのまま維持してエラーをログに出す(G-017 第4節)。
+    /// 投稿内容(P-01)・添付画像一覧(P-13)は成否にかかわらず変更しない(G-017 第7節)。
+    /// </summary>
+    public void ReloadConfig()
+    {
+        var result = _configReloader.Reload();
+        if (!result.IsSuccess)
+        {
+            _outputWriter.WriteError($"設定の再読み込みに失敗しました: {result.ErrorMessage}");
+            return;
+        }
+
+        _config = result.Config!;
+        OnPropertyChanged(nameof(Templates));
+        OnPropertyChanged(nameof(HasTemplates));
+        OnPropertyChanged(nameof(CharacterCountDisplay));
+        _outputWriter.WriteSuccess("設定を再読み込みしました");
     }
 
     private void RemoveImage(AttachedImage? image)
