@@ -21,7 +21,15 @@
         <TabItem Header="投稿">
         <Grid Margin="8">
         <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- P-08「投稿する」は結果ログ領域の自動拡大やウィンドウ縮小で枠外へ消えないよう、タブ最下部に
+             固定する。入力群(P-01〜P-06・P-12〜P-15)はその上の ScrollViewer 内でスクロールさせる(#93)。 -->
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid>
+        <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -105,9 +113,12 @@
                        FontSize="11" Foreground="Gray"/>
         </StackPanel>
 
-        <!-- P-08: 投稿する -->
-        <Button Grid.Row="5" Content="投稿する" Command="{Binding PostCommand}"
-                HorizontalAlignment="Right" Padding="16,6" Margin="0,0,0,8"/>
+        </Grid>
+        </ScrollViewer>
+
+        <!-- P-08: 投稿する(タブ最下部に固定して常時表示、#93) -->
+        <Button Grid.Row="1" Content="投稿する" Command="{Binding PostCommand}"
+                HorizontalAlignment="Right" Padding="16,6" Margin="0,8,0,0"/>
         </Grid>
         </TabItem>
 
@@ -169,7 +180,7 @@
                 <Button DockPanel.Dock="Right" Content="設定を再読み込み" Command="{Binding ReloadConfigCommand}"
                         Padding="6,2" Margin="0,0,4,0" IsEnabled="{Binding IsNotBusy}"/>
             </DockPanel>
-            <ListBox ItemsSource="{Binding LogEntries}" IsEnabled="True" MinHeight="100" MaxHeight="180">
+            <ListBox ItemsSource="{Binding LogEntries}" IsEnabled="True" MinHeight="100" MaxHeight="120">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap">
