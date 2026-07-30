@@ -25,4 +25,13 @@
     <ProjectReference Include="..\IchiPos.Core\IchiPos.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- レイアウト回帰テスト(MainWindowLayoutTests)が実XAMLを実行時に読み込むため、出力へコピーする。
+         Core側のコンパイル済みXAMLと同一ファイルを参照し、SSoTを保つ。 -->
+    <None Include="..\IchiPos.Core\Gui\MainWindow.xaml">
+      <Link>Gui\MainWindow.xaml</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

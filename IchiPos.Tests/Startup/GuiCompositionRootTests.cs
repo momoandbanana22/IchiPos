@@ -1,6 +1,7 @@
 using IchiPos.Config;
 using IchiPos.Gui;
 using IchiPos.Startup;
+using IchiPos.Tests.Gui;
 using Moq;
 using Xunit;
 
@@ -10,7 +11,11 @@ namespace IchiPos.Tests.Startup;
 /// GuiCompositionRootの配線を検証する自動テスト。Program.cs/GuiEntryPointと同じ組み立てを、
 /// 実際にウィンドウを表示せず(手動exe起動の代替として)検証する。
 /// MIXI2投稿対応PR(#4)で導入されたCompositionRoot検証テストと同じ狙い。
+///
+/// WPFのXAML(Window)を生成するため、他のXAML生成テストと同時に初回初期化が走らないよう
+/// WPF UI コレクションで直列化する(#93。<see cref="Gui.WpfUiCollection"/> 参照)。
 /// </summary>
+[Collection(WpfUiCollection.Name)]
 public class GuiCompositionRootTests
 {
     private static AppConfig ValidConfig() => new AppConfig
