@@ -10,6 +10,7 @@ using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Threading;
 using IchiPos.Gui;
+using IchiPos.Output;
 using Xunit;
 
 namespace IchiPos.Tests.Gui;
@@ -26,10 +27,11 @@ namespace IchiPos.Tests.Gui;
 [Collection(WpfUiCollection.Name)]
 public class MainWindowLayoutTests
 {
-    // 既定ウィンドウ(Width=560 / Height=680, 04書「画面イメージ」節)の内容領域に相当するサイズ。
-    // 外側 Grid の Margin(12) と枠を差し引いた、行が実際に取り合う領域の目安。
+    // 最小ウィンドウ(MinHeight=700, 04書「画面イメージ」節)の内容領域に相当するサイズ(#96)。
+    // 枠を差し引いた根要素の計測サイズの目安。この最小高でも入力フォームが縦スクロール/クリップ
+    // なく収まることを保証するための、厳しめ(小さめ)の見積り。幅は既定幅(560)相当の 520。
     private const double ContentWidth = 520;
-    private const double ContentHeight = 596;
+    private const double ContentHeight = 616;
 
     [Fact]
     public void 投稿ボタンは_ログ満杯かつ画像添付でも_タブ表示領域からはみ出さない()
@@ -79,6 +81,88 @@ public class MainWindowLayoutTests
             buttonBottom <= tabHeight + 1.0,
             $"投稿ボタンがタブ表示領域からはみ出しています(クリップ)。" +
             $" ボタン下端={buttonBottom:F1} > タブ高={tabHeight:F1}");
+    }
+
+    [Fact]
+    public void 入力フォームは_最小窓かつログ満杯でも_投稿ボタンの上に全体が収まる()
+    {
+        // #96: 入力群を ScrollViewer で包む(#93)のをやめ、フォームは常に全体表示・縦スクロールなしとする。
+        // 結果ログを伸縮領域(*)にしたためログ行数はタブ領域を圧迫しない。最小窓高でも入力群末尾
+        // (P-12 案内)が「投稿する」(P-08)の上に収まる(=クリップも縦スクロールバーも生じない)ことを検証する。
+        var (guidanceBottom, buttonTop) = RunOnStaThread(() =>
+        {
+            var win = LoadWindowFromXaml();
+            var root = (FrameworkElement)win.Content;
+            win.Content = null;
+
+            var size = new Size(ContentWidth, ContentHeight);
+            var rect = new Rect(new Point(0, 0), size);
+            root.Measure(size);
+            root.Arrange(rect);
+
+            // 結果ログを満杯にし、画像も1枚添付する(#96 の再現状況)。
+            var listBox = FindDescendant<ListBox>(root, _ => true)!;
+            listBox.ItemsSource = Enumerable.Range(1, 30)
+                .Select(i => new LogEntry(LogSeverity.Info, $"log line {i}",
+                    new DateTimeOffset(2026, 8, 1, 9, 0, i % 60, TimeSpan.Zero)))
+                .ToList();
+            var thumbScrollViewer = FindDescendant<ScrollViewer>(root, sv => sv.Height == 88);
+            var thumbItems = thumbScrollViewer is null
+                ? null
+                : FindDescendant<ItemsControl>(thumbScrollViewer, ic => ic is not ListBox);
+            thumbItems?.SetValue(ItemsControl.ItemsSourceProperty,
+                new[] { new AttachedImage("dummy.png", isTemporary: false) });
+
+            root.Measure(size);
+            root.Arrange(rect);
+            root.UpdateLayout();
+
+            // 入力群末尾の案内テキスト(P-12)と「投稿する」を root 座標系で比べる。
+            var guidance = FindDescendant<TextBlock>(root, tb => (tb.Text ?? "").StartsWith("画像をコピーして"))!;
+            var button = FindDescendant<Button>(root, b => (b.Content as string) == "投稿する")!;
+            var gBottom = guidance.TransformToAncestor(root).Transform(new Point(0, guidance.ActualHeight)).Y;
+            var bTop = button.TransformToAncestor(root).Transform(new Point(0, 0)).Y;
+            return (gBottom, bTop);
+        });
+
+        Assert.True(
+            guidanceBottom <= buttonTop + 1.0,
+            $"入力フォーム末尾が「投稿する」の下へはみ出しています(クリップ)。" +
+            $" 案内下端={guidanceBottom:F1} > ボタン上端={buttonTop:F1}");
+    }
+
+    [Fact]
+    public void 結果ログは_長い1行でも_横スクロールバーを出さず折り返す()
+    {
+        // #96: 長いログ行は現在の幅で折り返し、横スクロールバーは出さない(項目を幅いっぱいに伸ばす)。
+        var hbar = RunOnStaThread(() =>
+        {
+            var win = LoadWindowFromXaml();
+            var root = (FrameworkElement)win.Content;
+            win.Content = null;
+
+            var size = new Size(ContentWidth, ContentHeight);
+            var rect = new Rect(new Point(0, 0), size);
+            root.Measure(size);
+            root.Arrange(rect);
+
+            var listBox = FindDescendant<ListBox>(root, _ => true)!;
+            listBox.ItemsSource = new[]
+            {
+                new LogEntry(LogSeverity.Info, new string('あ', 200),
+                    new DateTimeOffset(2026, 8, 1, 9, 0, 0, TimeSpan.Zero)),
+            };
+
+            root.Measure(size);
+            root.Arrange(rect);
+            root.UpdateLayout();
+
+            // ログ ListBox 配下の ScrollViewer(テンプレート内)の横スクロールバー可視状態。
+            var logScrollViewer = FindDescendant<ScrollViewer>(listBox, _ => true)!;
+            return logScrollViewer.ComputedHorizontalScrollBarVisibility;
+        });
+
+        Assert.NotEqual(Visibility.Visible, hbar);
     }
 
     // ── ヘルパ ──────────────────────────────────────────────────────────
