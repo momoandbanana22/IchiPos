@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace IchiPos.Content;
 
 public interface IDatePlaceholderReplacer
@@ -24,7 +26,9 @@ public class DatePlaceholderReplacer : IDatePlaceholderReplacer
             return content;
         }
 
-        var today = _timeProvider.GetLocalNow().ToString(DateFormat);
+        // 日付は投稿本文(プロセス境界)へ出るため、実行環境のカルチャ既定暦に依存させない。
+        // InvariantCulture で確定的な yyyy/MM/dd(グレゴリオ暦)にする(issue #102)。
+        var today = _timeProvider.GetLocalNow().ToString(DateFormat, CultureInfo.InvariantCulture);
         return content.Replace(Placeholder, today);
     }
 }
