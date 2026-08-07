@@ -213,8 +213,18 @@ public class MainWindowViewModel : INotifyPropertyChanged
         ClearImages();
         foreach (var fileName in result.ImageFiles)
         {
-            AttachedImages.Add(new AttachedImage(Path.Combine(folderPath, fileName), isTemporary: false));
+            AddImage(Path.Combine(folderPath, fileName), isTemporary: false);
         }
+    }
+
+    /// <summary>
+    /// 添付画像一覧へ画像を追加する唯一の経路。パスは必ず絶対化して保持する。
+    /// AttachedImages のパスはクリップボード貼り付け(issue #98)やサムネイル(new Uri)など、
+    /// プロセス境界・フレームワークの消費者へ渡るため、相対パスであってはならない(issue #99)。
+    /// </summary>
+    private void AddImage(string path, bool isTemporary)
+    {
+        AttachedImages.Add(new AttachedImage(Path.GetFullPath(path), isTemporary));
     }
 
     /// <summary>
@@ -226,7 +236,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         if (IsBusy) return;
 
         var filePath = _clipboardImageStore.SaveToTempFile(image);
-        AttachedImages.Add(new AttachedImage(filePath, isTemporary: true));
+        AddImage(filePath, isTemporary: true);
     }
 
     /// <summary>
@@ -244,7 +254,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         {
             if (SupportedImageExtensions.IsSupported(filePath))
             {
-                AttachedImages.Add(new AttachedImage(filePath, isTemporary: false));
+                AddImage(filePath, isTemporary: false);
             }
             else
             {

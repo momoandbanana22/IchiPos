@@ -389,6 +389,24 @@ public class MainWindowViewModelTests
         Assert.Contains(outputWriter.Entries, e => e.Severity == LogSeverity.Error);
     }
 
+    [Fact]
+    public void 正常系_SetImagesFromFolderは相対フォルダでも絶対パスで保持する_issue99()
+    {
+        // #99: 相対フォルダを渡すと相対パスが AttachedImages に入り、クリップボード貼付（#98 同型）や
+        // サムネイル（new Uri は相対パスで例外）が壊れる。AttachedImages のパスは常に絶対でなければならない。
+        var mockFolderReader = new Mock<IImageFolderReader>();
+        mockFolderReader.Setup(x => x.Read("relative_images"))
+            .Returns(ImageFolderReadResult.Success(new List<string> { "a.png" }));
+        var vm = BuildViewModel(imageFolderReader: mockFolderReader);
+
+        vm.SetImagesFromFolder("relative_images");
+
+        Assert.NotEmpty(vm.AttachedImages);
+        Assert.All(vm.AttachedImages, i => Assert.True(
+            Path.IsPathFullyQualified(i.FilePath),
+            $"絶対パスでない（相対だと貼付・サムネイルが壊れる）: {i.FilePath}"));
+    }
+
     // ──────────────────────────────────────────────────────────────────
     // クリップボード画像貼り付け(04書 G-010): 追加(置き換えではない)
     // ──────────────────────────────────────────────────────────────────
