@@ -7,11 +7,15 @@ namespace IchiPos.Tests.Output;
 /// <summary>
 /// F-008 第5項: 画像をファイルドロップリスト形式（CF_HDROP）でクリップボードへコピーすることを検証する。
 ///
-/// 実際のWindowsクリップボードを読み書きするため、以下2点に配慮している。
-/// 1. クリップボードはプロセス横断の共有資源のため、<see cref="ClipboardTestCollection"/> で並行実行を無効化する。
-/// 2. クリップボードを持たない環境（対話セッションのないCIランナー等）では実行できないため、
-///    失敗ではなくスキップとして扱う。これらのテストは release.yml の <c>dotnet test</c> でも実行され、
-///    ここで失敗するとリリース自体が中断されるため、環境要因でリリースを壊さないようにする。
+/// テストは2層に分ける（#91）。
+/// 1. <b>決定的テスト（どの環境でも毎回実行）</b>: 転送内容・枚数・順序・STA実行という「我々のロジック」を、
+///    <see cref="FakeClipboard"/> / seam 経由で実クリップボードに依存せず検証する。
+/// 2. <b>実クリップボード統合テスト（CI限定, <see cref="SkipIfNotCI"/>）</b>: CF_HDROP形式・STAスレッド破棄後の
+///    保持という「OS/OLEの契約」は実クリップボードでしか検証できない。クリップボードはログインセッションで唯一の
+///    共有資源のため、人間が同じPCでクリップボードを使う開発機では競合して間欠失敗する。人間が介在せず競合しない
+///    CI（GitHub Actions）でのみ実行し、<see cref="ClipboardTestCollection"/> で並行実行も無効化する。
+///    クリップボードを持たない環境（対話セッションのないランナー等）では <see cref="SkipIfClipboardUnavailable"/>
+///    でスキップする。これらは release.yml の <c>dotnet test</c> でも実行される。
 /// </summary>
 [Collection(ClipboardTestCollection.Name)]
 public class WindowsClipboardServiceTests : IDisposable
@@ -64,6 +68,20 @@ public class WindowsClipboardServiceTests : IDisposable
         Skip.If(error != null, $"このテストは利用可能なクリップボードを必要とする: {error?.Message}");
     }
 
+    /// <summary>
+    /// 実クリップボード（ログインセッションで唯一の共有資源）を読み書きするテストは、人間が同じPCで
+    /// クリップボードを使う開発機では他プロセス・他アプリと競合して間欠失敗する（#91）。CF_HDROP形式や
+    /// STAスレッド破棄後の保持といったOS境界の挙動は我々のロジックでは代替検証できず実クリップボードを要するため、
+    /// 人間が介在せず競合しないCI（GitHub Actions は環境変数 <c>CI</c> を設定する）でのみ実行する。ローカルでは
+    /// スキップし（転送内容・順序・STA実行は決定的テストが毎回検証する）、CIが毎PR実境界を裏打ちする。
+    /// これは失敗を握りつぶすスキップではなく、実検証をCIへ寄せる環境ゲートである。
+    /// 手元で意図的に確認したい場合は環境変数 <c>CI=true</c> を設定して実行する。
+    /// </summary>
+    private static void SkipIfNotCI() =>
+        Skip.If(
+            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")),
+            "実クリップボード依存テストは競合のないCIでのみ実行する（#91）。手元で走らせるには環境変数 CI=true。");
+
     private static List<string> ReadFileDropList() =>
         OnStaThread(() => Clipboard.GetFileDropList().Cast<string>().ToList());
 
@@ -79,20 +97,15 @@ public class WindowsClipboardServiceTests : IDisposable
         return paths;
     }
 
-    [SkippableFact]
-    public void 正常系_4枚のパスがファイルドロップリストとしてクリップボードに載る()
-    {
-        SkipIfClipboardUnavailable();
-        var paths = CreateImageFiles(4);
-
-        new WindowsClipboardService().SetImages(paths);
-
-        Assert.Equal(paths, ReadFileDropList());
-    }
+    // ── 実クリップボード統合テスト（CI限定）──
+    // OS/OLEの契約（実際にCF_HDROPで載る・STAスレッド破棄後も保持される）は実クリップボードでしか
+    // 検証できない。開発機では人間とクリップボードを奪い合い間欠失敗するため、CIでのみ実行する（#91）。
 
     [SkippableFact]
     public void 正常系_ファイルドロップリスト形式でクリップボードに載る()
     {
+        // CF_HDROP形式で実際に載ることの検証。この「OSがどの形式で保持するか」は実クリップボードを要する。
+        SkipIfNotCI();
         SkipIfClipboardUnavailable();
         var paths = CreateImageFiles(2);
 
@@ -103,21 +116,12 @@ public class WindowsClipboardServiceTests : IDisposable
     }
 
     [SkippableFact]
-    public void 正常系_1枚でもファイルドロップリストとして載る()
-    {
-        SkipIfClipboardUnavailable();
-        var paths = CreateImageFiles(1);
-
-        new WindowsClipboardService().SetImages(paths);
-
-        Assert.Equal(paths, ReadFileDropList());
-    }
-
-    [SkippableFact]
     public void 正常系_コピーに使ったSTAスレッドの終了後もクリップボードの内容が保持される()
     {
-        // SetImages は専用STAスレッドを生成しJoin後に破棄する。スレッド破棄によって
-        // クリップボードの内容が失われないことを担保する（失われるとX下書き画面に貼り付けられない）。
+        // SetImages は専用STAスレッドを生成しJoin後に破棄する。スレッド破棄によってクリップボードの内容が
+        // 失われないこと（失われるとX下書き画面に貼り付けられない）を担保する。破棄後の保持はOLEのフラッシュ
+        // 挙動に依存し、我々のスレッド運用がそれを壊していないかは実クリップボードでしか検証できない。
+        SkipIfNotCI();
         SkipIfClipboardUnavailable();
         var paths = CreateImageFiles(4);
 
@@ -127,6 +131,57 @@ public class WindowsClipboardServiceTests : IDisposable
         var actual = ReadFileDropList();
         Assert.Equal(4, actual.Count);
         Assert.Equal(paths, actual);
+    }
+
+    // ── 決定的テスト（実クリップボード不要・どの環境でも毎回実行）──
+    // 我々が実装したロジック（転送内容・枚数・順序・STA実行・リトライと失敗の表面化）を、seam / FakeClipboard で
+    // 決定的に検証する。共有資源に依存しないため間欠失敗しない。
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    public void SetImages_渡したパスをそのままの順序で下位設定へ転送する(int count)
+    {
+        // 転送内容と枚数の保証（実際にCF_HDROPとして載ることは上のCI限定テストが担う）。
+        var fake = new FakeClipboard();
+        var paths = Enumerable.Range(1, count).Select(i => $@"C:\img{i}.png").ToList();
+        var service = new WindowsClipboardService(fake.Set, fake.Get, maxAttempts: 1, retryDelayMs: 0);
+
+        service.SetImages(paths);
+
+        Assert.Equal(paths, fake.Stored);
+    }
+
+    [Fact]
+    public void SetImages_逆順で渡しても順序を保って転送する()
+    {
+        // 添付画像一覧の並べ替え（04書 G-011第5節）の結果がX側の添付順に反映されるよう、順序保持を担保する。
+        var fake = new FakeClipboard();
+        var paths = new List<string> { @"C:\c.png", @"C:\b.png", @"C:\a.png" };
+        var service = new WindowsClipboardService(fake.Set, fake.Get, maxAttempts: 1, retryDelayMs: 0);
+
+        service.SetImages(paths);
+
+        Assert.Equal(paths, fake.Stored);
+    }
+
+    [Fact]
+    public void SetImages_設定はSTAスレッド上で実行される()
+    {
+        // クリップボードAPIはSTAを要求する。SetImagesが下位設定を必ずSTAスレッドで実行することを、
+        // 実クリップボードに依存せず決定的に検証する。
+        ApartmentState? apartmentAtSet = null;
+        var store = new List<string>();
+        var paths = new List<string> { @"C:\a.png" };
+        var service = new WindowsClipboardService(
+            set: p => { apartmentAtSet = Thread.CurrentThread.GetApartmentState(); store = p.ToList(); },
+            get: () => store,
+            maxAttempts: 1,
+            retryDelayMs: 0);
+
+        service.SetImages(paths);
+
+        Assert.Equal(ApartmentState.STA, apartmentAtSet);
     }
 
     // ── issue #56: リトライと失敗の表面化（実クリップボード不要の決定的テスト） ──
@@ -198,19 +253,5 @@ public class WindowsClipboardServiceTests : IDisposable
         }
 
         public IReadOnlyList<string> Get() => _stored;
-    }
-
-    [SkippableFact]
-    public void 正常系_渡した順序どおりにクリップボードへ載る()
-    {
-        // 添付画像一覧の並べ替え（04書 G-011第5節）の結果がX側の添付順に反映されるようにするため、
-        // 順序が保たれることを担保する。
-        SkipIfClipboardUnavailable();
-        var paths = CreateImageFiles(4);
-        paths.Reverse();
-
-        new WindowsClipboardService().SetImages(paths);
-
-        Assert.Equal(paths, ReadFileDropList());
     }
 }
