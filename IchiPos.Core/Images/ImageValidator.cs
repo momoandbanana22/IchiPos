@@ -16,7 +16,12 @@ public class ImageValidator : IImageValidator
 {
     public ImageValidationResult Validate(string folderPath, List<string> fileNames)
     {
-        var fullPaths = fileNames.Select(fileName => Path.Combine(folderPath, fileName)).ToList();
+        // フォルダ結合後に必ず絶対パス化する。相対パスは発行元プロセスの CWD でしか意味を持たない。
+        // クリップボード(CF_HDROP)はプロセス境界を越えるチャネルなので、相対パスを載せること自体が
+        // 設計上の誤り(受け手のどのプロセスも解決できない)。境界で絶対パス化し自己完結させる(issue #98)。
+        var fullPaths = fileNames
+            .Select(fileName => Path.GetFullPath(Path.Combine(folderPath, fileName)))
+            .ToList();
         return ValidateFiles(fullPaths);
     }
 

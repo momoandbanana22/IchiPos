@@ -36,6 +36,40 @@ public class ImageValidatorTests
     }
 
     [Fact]
+    public void 正常系_相対フォルダパスでも絶対パスを返す_issue98()
+    {
+        // #98: --image-path が相対のとき、クリップボードに載るパスが相対のままだと、
+        // 外部（X/ブラウザ）がファイルを解決できず貼り付けできない（実機で再現・確定）。
+        // Validate はフォルダが相対でも絶対パス（完全修飾）を返さなければならない。
+        // Arrange: カレントディレクトリ配下に相対フォルダを作り、実PNGを置く（CWDは変更しない）。
+        var relativeDir = "issue98_rel_" + Guid.NewGuid().ToString("N");
+        Directory.CreateDirectory(relativeDir);
+        try
+        {
+            using (var bitmap = new Bitmap(10, 10))
+            {
+                bitmap.Save(Path.Combine(relativeDir, "test.png"), ImageFormat.Png);
+            }
+
+            var validator = new ImageValidator();
+
+            // Act: 相対フォルダパスで検証する
+            var result = validator.Validate(relativeDir, new List<string> { "test.png" });
+
+            // Assert: 返るパスはすべて絶対（完全修飾）でなければならない
+            Assert.True(result.IsSuccess);
+            Assert.NotEmpty(result.ValidImagePaths);
+            Assert.All(result.ValidImagePaths, p => Assert.True(
+                Path.IsPathFullyQualified(p),
+                $"絶対パスでない（相対だと X に貼り付けできない）: {p}"));
+        }
+        finally
+        {
+            Directory.Delete(relativeDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void 正常系_複数の有効な画像ファイル()
     {
         // Arrange
