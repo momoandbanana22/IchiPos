@@ -40,6 +40,13 @@ public class ConfigLoader : IConfigLoader
             if (string.IsNullOrWhiteSpace(config.X.PostUrlBase))
                 return ConfigLoadResult.Failure("設定 x.post_url_base が設定されていません");
 
+            // visibility は Misskey が受理する値に限る。許容外を送ると 400 になり原因が分かりにくいため、
+            // 送信前(設定読み込み時)に弾く(issue #100)。未記載は既定 "public"(AppConfig)で有効。
+            var allowedVisibilities = new[] { "public", "home", "followers", "specified" };
+            if (!allowedVisibilities.Contains(config.Misskey.Visibility))
+                return ConfigLoadResult.Failure(
+                    $"設定 misskey.visibility は {string.Join(" / ", allowedVisibilities)} のいずれかである必要があります（現在: '{config.Misskey.Visibility}'）");
+
             // 定型文(G-016第2節)。任意設定のため未記載でもエラーとしない。
             // 空文字・空白のみの項目は、投稿しても投稿前チェックでエラーになるだけなので画面に並べない(第4項)。
             config.Templates = (config.Templates ?? new List<string>())
