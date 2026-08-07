@@ -16,7 +16,11 @@ public class ImageValidator : IImageValidator
 {
     public ImageValidationResult Validate(string folderPath, List<string> fileNames)
     {
-        var fullPaths = fileNames.Select(fileName => Path.Combine(folderPath, fileName)).ToList();
+        // フォルダ結合後に必ず絶対パス化する。相対のままだと、クリップボード(CF_HDROP)へ載せても
+        // X(ブラウザ)がファイルを解決できず貼り付けできない(issue #98。--image-path が相対のとき再現)。
+        var fullPaths = fileNames
+            .Select(fileName => Path.GetFullPath(Path.Combine(folderPath, fileName)))
+            .ToList();
         return ValidateFiles(fullPaths);
     }
 
