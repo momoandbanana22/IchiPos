@@ -137,6 +137,72 @@ x:
     }
 
     // ──────────────────────────────────────────────────────────────────
+    // Misskey visibility の妥当性検証 (issue #100)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 異常系_visibilityが許容値以外の場合はエラーを返す_issue100()
+    {
+        // 許容外の値をそのまま送ると Misskey が 400 を返し原因が分かりにくい。送信前に弾く。
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+  visibility: invalid_value
+x:
+  post_url_base: https://twitter.com/intent/tweet
+");
+        var result = new ConfigLoader().Load(testDir);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+        Assert.Contains("visibility", result.ErrorMessage!);
+
+        Directory.Delete(testDir, true);
+    }
+
+    [Theory]
+    [InlineData("public")]
+    [InlineData("home")]
+    [InlineData("followers")]
+    [InlineData("specified")]
+    public void 正常系_visibilityの許容値を受け付ける_issue100(string visibility)
+    {
+        var testDir = CreateConfigDir($@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+  visibility: {visibility}
+x:
+  post_url_base: https://twitter.com/intent/tweet
+");
+        var result = new ConfigLoader().Load(testDir);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(visibility, result.Config!.Misskey.Visibility);
+
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 正常系_visibility未記載は既定publicで有効_issue100()
+    {
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+");
+        var result = new ConfigLoader().Load(testDir);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("public", result.Config!.Misskey.Visibility);
+
+        Directory.Delete(testDir, true);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
     // 定型文(04書 G-016 第2節)
     // ──────────────────────────────────────────────────────────────────
 
