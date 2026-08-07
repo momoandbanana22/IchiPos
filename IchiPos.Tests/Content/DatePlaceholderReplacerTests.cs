@@ -89,4 +89,26 @@ public class DatePlaceholderReplacerTests
         // Assert
         Assert.Equal("", result);
     }
+
+    [Fact]
+    public void 正常系_実行環境のカルチャに依存せずグレゴリオ暦で置換する_issue102()
+    {
+        // 日付は投稿本文へ出る（プロセス境界）。現在カルチャの既定暦（例: ar-SA はヒジュラ暦）に
+        // 依存すると年が変わりうるため、InvariantCulture で確定的な yyyy/MM/dd（グレゴリオ暦）にする。
+        var replacer = CreateReplacer(2026, 7, 3);
+        var original = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture =
+                System.Globalization.CultureInfo.GetCultureInfo("ar-SA");
+
+            var result = replacer.Replace("今日は{date}です");
+
+            Assert.Equal("今日は2026/07/03です", result);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = original;
+        }
+    }
 }

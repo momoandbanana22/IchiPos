@@ -1,3 +1,4 @@
+using System.Text;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -22,7 +23,9 @@ public class ConfigLoader : IConfigLoader
 
         try
         {
-            var yaml = File.ReadAllText(configPath);
+            // config.yaml はユーザーが編集する外部成果物。既定エンコーディング（実行環境依存）に
+            // 頼らず UTF-8 で読むことを明示する（境界を越える値は文脈非依存に。issue #102）。
+            var yaml = File.ReadAllText(configPath, Encoding.UTF8);
             var deserializer = new DeserializerBuilder()
                 .WithNamingConvention(UnderscoredNamingConvention.Instance)
                 .Build();
