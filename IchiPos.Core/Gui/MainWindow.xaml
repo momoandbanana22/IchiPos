@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:IchiPos.Gui"
-        Title="IchiPos" Height="720" Width="560" MinHeight="700" MinWidth="440"
+        Title="IchiPos" Height="750" Width="560" MinHeight="730" MinWidth="440"
         Icon="/IchiPos;component/icon/IchiPos.ico">
     <Window.Resources>
         <local:FilePathToThumbnailConverter x:Key="FilePathToThumbnailConverter"/>
@@ -12,8 +12,9 @@
          どちらのタブを選択していても常に表示する。 -->
     <Grid Margin="12">
         <Grid.RowDefinitions>
-            <!-- P-16 タブ。入力フォームが常に全体表示される高さ(MinHeight)を確保する(#96、04書§5.1)。 -->
-            <RowDefinition Height="*" MinHeight="470"/>
+            <!-- P-16 タブ。入力フォームが常に全体表示される高さ(MinHeight)を確保する(#96、04書§5.1)。
+                 P-20 センシティブ設定チェックボックス(issue #107)の追加分だけ最小高を引き上げている。 -->
+            <RowDefinition Height="*" MinHeight="500"/>
             <!-- P-09 結果ログ。伸縮領域。ウィンドウを縦に広げた分は主にここが伸びる(#96)。 -->
             <RowDefinition Height="2*" MinHeight="120"/>
             <!-- P-11 バージョン表示 -->
@@ -114,6 +115,9 @@
             <!-- P-12: クリップボード画像貼り付け機能(G-010)の案内 -->
             <TextBlock Text="画像をコピーして Ctrl+V で貼り付けることもできます(複数ファイルの貼り付けにも対応)" Margin="0,4,0,0"
                        FontSize="11" Foreground="Gray"/>
+            <!-- P-20: 投稿画像のセンシティブフラグ(04書 G-018、issue #107)。既定ON。 -->
+            <CheckBox x:Name="SensitiveCheckBox" Content="投稿画像をセンシティブとして扱う" Margin="0,8,0,0"
+                      IsChecked="{Binding IsSensitive}" IsEnabled="{Binding IsNotBusy}"/>
         </StackPanel>
 
         </Grid>

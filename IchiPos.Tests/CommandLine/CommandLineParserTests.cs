@@ -160,4 +160,137 @@ public class CommandLineParserTests
         // Assert
         Assert.True(result.IsVersionRequest);
     }
+
+    // ──────────────────────────────────────────────
+    // --sensitive オプション(issue #107、01書「画像のセンシティブフラグ」節・02書 F-001)
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public void 正常系_sensitive未指定のとき既定でON()
+    {
+        // Arrange
+        // 既定はセンシティブフラグON(01書「画像のセンシティブフラグ」節)。
+        var args = new[] { "hello" };
+        var parser = new CommandLineParser();
+
+        // Act
+        var result = parser.Parse(args);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.True(result.IsSensitive);
+    }
+
+    [Fact]
+    public void 正常系_sensitive_onを指定するとON()
+    {
+        // Arrange
+        var args = new[] { "hello", "--sensitive", "on" };
+        var parser = new CommandLineParser();
+
+        // Act
+        var result = parser.Parse(args);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.True(result.IsSensitive);
+    }
+
+    [Fact]
+    public void 正常系_sensitive_offを指定するとOFF()
+    {
+        // Arrange
+        var args = new[] { "hello", "--sensitive", "off" };
+        var parser = new CommandLineParser();
+
+        // Act
+        var result = parser.Parse(args);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.False(result.IsSensitive);
+    }
+
+    [Theory]
+    [InlineData("ON")]
+    [InlineData("On")]
+    [InlineData("oN")]
+    public void 正常系_sensitiveのonは大文字小文字を区別しない(string value)
+    {
+        // Arrange
+        var args = new[] { "hello", "--sensitive", value };
+        var parser = new CommandLineParser();
+
+        // Act
+        var result = parser.Parse(args);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.True(result.IsSensitive);
+    }
+
+    [Theory]
+    [InlineData("OFF")]
+    [InlineData("Off")]
+    [InlineData("oFf")]
+    public void 正常系_sensitiveのoffは大文字小文字を区別しない(string value)
+    {
+        // Arrange
+        var args = new[] { "hello", "--sensitive", value };
+        var parser = new CommandLineParser();
+
+        // Act
+        var result = parser.Parse(args);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.False(result.IsSensitive);
+    }
+
+    [Fact]
+    public void 正常系_sensitiveとimagePathを併用できる()
+    {
+        // Arrange
+        var args = new[] { "hello", "--image-path", @"C:\images", "--sensitive", "off" };
+        var parser = new CommandLineParser();
+
+        // Act
+        var result = parser.Parse(args);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal("hello", result.Content);
+        Assert.Equal(@"C:\images", result.ImagePath);
+        Assert.False(result.IsSensitive);
+    }
+
+    [Fact]
+    public void 異常系_sensitiveの後に値未指定()
+    {
+        // Arrange
+        var args = new[] { "hello", "--sensitive" };
+        var parser = new CommandLineParser();
+
+        // Act
+        var result = parser.Parse(args);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+    }
+
+    [Fact]
+    public void 異常系_sensitiveの値がonoff以外()
+    {
+        // Arrange
+        var args = new[] { "hello", "--sensitive", "maybe" };
+        var parser = new CommandLineParser();
+
+        // Act
+        var result = parser.Parse(args);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+    }
 }

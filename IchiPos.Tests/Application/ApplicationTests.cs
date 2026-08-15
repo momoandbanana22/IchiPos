@@ -71,7 +71,7 @@ public class ApplicationTests
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config)).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
+        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>())).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync("hello", config)).ReturnsAsync(XPostLaunchResult.Success());
         var mockOutput = new Mock<IOutputWriter>();
@@ -80,7 +80,7 @@ public class ApplicationTests
         var result = await app.RunAsync(args, config);
 
         Assert.Equal(0, result);
-        mockMisskey.Verify(x => x.PostAsync("hello", It.IsAny<List<string>>(), config), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>()), Times.Once);
         mockX.Verify(x => x.LaunchAsync("hello", config), Times.Once);
     }
 
@@ -103,7 +103,7 @@ public class ApplicationTests
         mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
             .Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Success("note123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
@@ -135,7 +135,7 @@ public class ApplicationTests
         mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
             .Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Success("note123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
@@ -167,7 +167,7 @@ public class ApplicationTests
         mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
             .Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Success("note123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
@@ -202,7 +202,7 @@ public class ApplicationTests
         mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
             .Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Success("note123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
@@ -238,7 +238,7 @@ public class ApplicationTests
         mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
             .Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Success("note123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
@@ -275,7 +275,7 @@ public class ApplicationTests
         mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
             .Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Success("note123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
@@ -310,7 +310,7 @@ public class ApplicationTests
         mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
             .Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Success("note123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
@@ -348,7 +348,7 @@ public class ApplicationTests
         mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
             .Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Success("note123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
@@ -383,7 +383,7 @@ public class ApplicationTests
 
         Assert.Equal(0, result);
         mockOutput.Verify(x => x.WriteInfo(It.Is<string>(s => s.Contains(AppVersion.Current))), Times.Once);
-        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Never);
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -414,7 +414,7 @@ public class ApplicationTests
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config)).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
+        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>())).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync("hello", config)).ReturnsAsync(XPostLaunchResult.Success());
         var mockOutput = new Mock<IOutputWriter>();
@@ -423,7 +423,7 @@ public class ApplicationTests
         var result = await app.RunAsync(args, config);
 
         Assert.Equal(0, result);
-        mockMisskey.Verify(x => x.PostAsync("hello", It.IsAny<List<string>>(), config), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>()), Times.Once);
         mockX.Verify(x => x.LaunchAsync("hello", config), Times.Once);
     }
 
@@ -445,7 +445,7 @@ public class ApplicationTests
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate("  hello", It.IsAny<List<string>>(), It.IsAny<int>())).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync("  hello", It.IsAny<List<string>>(), It.IsAny<AppConfig>())).ReturnsAsync(MisskeyPostResult.Success("note123"));
+        mockMisskey.Setup(x => x.PostAsync("  hello", It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>())).ReturnsAsync(MisskeyPostResult.Success("note123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
         var mockOutput = new Mock<IOutputWriter>();
@@ -454,7 +454,7 @@ public class ApplicationTests
         var result = await app.RunAsync(args, config);
 
         Assert.Equal(0, result);
-        mockMisskey.Verify(x => x.PostAsync("  hello", It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync("  hello", It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Once);
     }
 
     [Fact]
@@ -502,7 +502,7 @@ public class ApplicationTests
 
         Assert.Equal(1, result);
         mockOutput.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
-        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Never);
     }
 
     [Fact]
@@ -530,7 +530,7 @@ public class ApplicationTests
 
         Assert.Equal(1, result);
         mockOutput.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
-        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Never);
     }
 
     [Fact]
@@ -561,7 +561,7 @@ public class ApplicationTests
 
         Assert.Equal(1, result);
         mockOutput.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
-        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Never);
     }
 
     [Fact]
@@ -595,7 +595,7 @@ public class ApplicationTests
 
         Assert.Equal(1, result);
         mockOutput.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
-        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Never);
     }
 
     [Fact]
@@ -621,7 +621,7 @@ public class ApplicationTests
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config))
+        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Failure("Misskey投稿失敗"));
         var mockX = new Mock<IXPostLauncher>();
 
@@ -658,7 +658,7 @@ public class ApplicationTests
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config)).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
+        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>())).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync("hello", config)).ReturnsAsync(XPostLaunchResult.Success());
 
@@ -667,10 +667,10 @@ public class ApplicationTests
             mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
             datePlaceholder: PassthroughDatePlaceholder());
 
-        var result = await app.RunAsync("hello", Array.Empty<string>(), config);
+        var result = await app.RunAsync("hello", Array.Empty<string>(), config, isSensitive: true);
 
         Assert.Equal(0, result);
-        mockMisskey.Verify(x => x.PostAsync("hello", It.IsAny<List<string>>(), config), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>()), Times.Once);
         mockX.Verify(x => x.LaunchAsync("hello", config), Times.Once);
     }
 
@@ -688,7 +688,7 @@ public class ApplicationTests
         mockPrePost.Setup(x => x.Validate("hello.txt", It.IsAny<List<string>>(), It.IsAny<int>()))
             .Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync("hello.txt", It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+        mockMisskey.Setup(x => x.PostAsync("hello.txt", It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Success("note123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
@@ -698,11 +698,11 @@ public class ApplicationTests
             mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
             datePlaceholder: PassthroughDatePlaceholder());
 
-        var result = await app.RunAsync("hello.txt", Array.Empty<string>(), config);
+        var result = await app.RunAsync("hello.txt", Array.Empty<string>(), config, isSensitive: true);
 
         Assert.Equal(0, result);
         mockContent.Verify(x => x.ResolveAsync(It.IsAny<string>()), Times.Never);
-        mockMisskey.Verify(x => x.PostAsync("hello.txt", It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync("hello.txt", It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Once);
     }
 
     [Fact]
@@ -717,7 +717,7 @@ public class ApplicationTests
         mockPrePost.Setup(x => x.Validate("今日は2026/07/04です", It.IsAny<List<string>>(), It.IsAny<int>()))
             .Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync("今日は2026/07/04です", It.IsAny<List<string>>(), It.IsAny<AppConfig>()))
+        mockMisskey.Setup(x => x.PostAsync("今日は2026/07/04です", It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Success("note123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
@@ -730,10 +730,10 @@ public class ApplicationTests
             mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
             datePlaceholder: mockDatePlaceholder);
 
-        var result = await app.RunAsync("今日は{date}です", Array.Empty<string>(), config);
+        var result = await app.RunAsync("今日は{date}です", Array.Empty<string>(), config, isSensitive: true);
 
         Assert.Equal(0, result);
-        mockMisskey.Verify(x => x.PostAsync("今日は2026/07/04です", It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync("今日は2026/07/04です", It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Once);
     }
 
     [Fact]
@@ -754,7 +754,7 @@ public class ApplicationTests
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate("hello", imagePaths, 280)).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync("hello", imagePaths, config)).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
+        mockMisskey.Setup(x => x.PostAsync("hello", imagePaths, config, It.IsAny<bool>())).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync("hello", config)).ReturnsAsync(XPostLaunchResult.Success());
 
@@ -763,11 +763,11 @@ public class ApplicationTests
             mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
             datePlaceholder: PassthroughDatePlaceholder());
 
-        var result = await app.RunAsync("hello", imagePaths, config);
+        var result = await app.RunAsync("hello", imagePaths, config, isSensitive: true);
 
         Assert.Equal(0, result);
         mockValidator.Verify(x => x.ValidateFiles(imagePaths), Times.Once);
-        mockMisskey.Verify(x => x.PostAsync("hello", imagePaths, config), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync("hello", imagePaths, config, It.IsAny<bool>()), Times.Once);
     }
 
     [Fact]
@@ -788,7 +788,7 @@ public class ApplicationTests
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config)).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
+        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>())).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
         var mockX = new Mock<IXPostLauncher>();
         mockX.Setup(x => x.LaunchAsync("hello", config)).ReturnsAsync(XPostLaunchResult.Success());
 
@@ -798,10 +798,10 @@ public class ApplicationTests
             datePlaceholder: PassthroughDatePlaceholder());
 
         // WPFのマルチラインTextBoxで末尾でEnterを押した場合や、他アプリからの貼り付けを想定した末尾改行。
-        var result = await app.RunAsync("hello\r\n", Array.Empty<string>(), config);
+        var result = await app.RunAsync("hello\r\n", Array.Empty<string>(), config, isSensitive: true);
 
         Assert.Equal(0, result);
-        mockMisskey.Verify(x => x.PostAsync("hello", It.IsAny<List<string>>(), config), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>()), Times.Once);
         mockX.Verify(x => x.LaunchAsync("hello", config), Times.Once);
     }
 
@@ -822,11 +822,11 @@ public class ApplicationTests
             new Mock<IPrePostValidator>(), mockMisskey, new Mock<IXPostLauncher>(), mockOutput,
             datePlaceholder: PassthroughDatePlaceholder());
 
-        var result = await app.RunAsync("hello", imagePaths, config);
+        var result = await app.RunAsync("hello", imagePaths, config, isSensitive: true);
 
         Assert.Equal(1, result);
         mockOutput.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
-        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Never);
     }
 
     [Fact]
@@ -848,11 +848,11 @@ public class ApplicationTests
             mockPrePost, mockMisskey, new Mock<IXPostLauncher>(), mockOutput,
             datePlaceholder: PassthroughDatePlaceholder());
 
-        var result = await app.RunAsync("", Array.Empty<string>(), config);
+        var result = await app.RunAsync("", Array.Empty<string>(), config, isSensitive: true);
 
         Assert.Equal(1, result);
         mockOutput.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
-        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>()), Times.Never);
+        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Never);
     }
 
     [Fact]
@@ -871,7 +871,7 @@ public class ApplicationTests
         var mockPrePost = new Mock<IPrePostValidator>();
         mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
-        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config))
+        mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Failure("Misskey投稿失敗"));
         var mockX = new Mock<IXPostLauncher>();
 
@@ -880,9 +880,80 @@ public class ApplicationTests
             mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
             datePlaceholder: PassthroughDatePlaceholder());
 
-        var result = await app.RunAsync("hello", Array.Empty<string>(), config);
+        var result = await app.RunAsync("hello", Array.Empty<string>(), config, isSensitive: true);
 
         Assert.NotEqual(0, result);
         mockX.Verify(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>()), Times.Never);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // センシティブフラグ(issue #107、01書「画像のセンシティブフラグ」節・04書 G-018)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CLI入力_ParseResultのセンシティブフラグがMisskey投稿へそのまま渡る(bool isSensitive)
+    {
+        // CLIでは ParseResult.IsSensitive(--sensitive の解析結果)が PostAsync まで届く。
+        var args = new[] { "hello", "--image-path", @"C:\images" };
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+
+        var mockParser = new Mock<ICommandLineParser>();
+        mockParser.Setup(x => x.Parse(args)).Returns(ParseResult.Success("hello", @"C:\images", isSensitive));
+        var mockContent = new Mock<IContentResolver>();
+        mockContent.Setup(x => x.ResolveAsync("hello")).ReturnsAsync(ContentResolveResult.Success("hello"));
+        var mockFolder = new Mock<IImageFolderReader>();
+        mockFolder.Setup(x => x.Read(@"C:\images")).Returns(ImageFolderReadResult.Success(new List<string> { "a.png" }));
+        var validPaths = new List<string> { @"C:\images\a.png" };
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(validPaths));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
+
+        var app = BuildApp(mockParser, mockContent, mockFolder, mockValidator, mockPrePost, mockMisskey, mockX,
+            new Mock<IOutputWriter>());
+        await app.RunAsync(args, config);
+
+        mockMisskey.Verify(x => x.PostAsync(
+            It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), isSensitive), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GUI入力_センシティブフラグ引数がMisskey投稿へそのまま渡る(bool isSensitive)
+    {
+        // GUI(04書 G-018)では RunAsync の isSensitive 引数が PostAsync まで届く。
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+        var imagePaths = new List<string> { @"C:\folder\a.png" };
+
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.ValidateFiles(imagePaths))
+            .Returns(ImageValidationResult.Success(imagePaths));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), new Mock<IImageFolderReader>(), mockValidator,
+            mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
+            datePlaceholder: PassthroughDatePlaceholder());
+
+        await app.RunAsync("hello", imagePaths, config, isSensitive);
+
+        mockMisskey.Verify(x => x.PostAsync("hello", imagePaths, config, isSensitive), Times.Once);
     }
 }

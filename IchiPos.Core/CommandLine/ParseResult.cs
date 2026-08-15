@@ -8,15 +8,22 @@ public class ParseResult
     public string? ImagePath { get; private set; }
     public string? ErrorMessage { get; private set; }
 
+    /// <summary>
+    /// 添付画像のセンシティブフラグ（issue #107、01書「画像のセンシティブフラグ」節）。
+    /// 既定は ON（true）。--sensitive off を指定したときのみ false になる。
+    /// </summary>
+    public bool IsSensitive { get; private set; } = true;
+
     private ParseResult() { }
 
-    public static ParseResult Success(string content, string? imagePath)
+    public static ParseResult Success(string content, string? imagePath, bool isSensitive = true)
     {
         return new ParseResult
         {
             IsSuccess = true,
             Content = content,
-            ImagePath = imagePath
+            ImagePath = imagePath,
+            IsSensitive = isSensitive
         };
     }
 

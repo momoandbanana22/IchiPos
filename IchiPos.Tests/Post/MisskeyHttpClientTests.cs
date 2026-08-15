@@ -2,12 +2,44 @@ using IchiPos.Post;
 using Moq;
 using Moq.Protected;
 using System.Net;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace IchiPos.Tests.Post;
 
 public class MisskeyHttpClientTests
 {
+    // マルチパートのリクエストボディ文字列を捕捉するHttpClient。
+    // コールバック内で同期的に読み切ることで、送信後のContent破棄と競合しないようにする。
+    private static (HttpClient, Func<string?>) CreateBodyCapturingHttpClient(HttpStatusCode statusCode, string responseJson)
+    {
+        string? capturedBody = null;
+        var mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Callback<HttpRequestMessage, CancellationToken>((req, _) =>
+            {
+                capturedBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            })
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = statusCode,
+                Content = new StringContent(responseJson)
+            });
+        return (new HttpClient(mockHandler.Object), () => capturedBody);
+    }
+
+    // multipart/form-data ボディから、指定した name のフィールド値を取り出す。
+    private static string? ExtractMultipartField(string body, string name)
+    {
+        var m = Regex.Match(body,
+            "name=\"?" + Regex.Escape(name) + "\"?\r?\n\r?\n(?<v>[^\r\n]*)");
+        return m.Success ? m.Groups["v"].Value : null;
+    }
+
     private static HttpClient CreateHttpClient(HttpStatusCode statusCode, string responseJson)
     {
         var mockHandler = new Mock<HttpMessageHandler>();
@@ -228,7 +260,8 @@ public class MisskeyHttpClientTests
             var result = await client.UploadImageAsync(
                 "https://misskey.example.com",
                 "token",
-                tempFile);
+                tempFile,
+                isSensitive: true);
 
             // Assert
             Assert.True(result.IsSuccess);
@@ -255,7 +288,8 @@ public class MisskeyHttpClientTests
             var result = await client.UploadImageAsync(
                 "https://misskey.example.com",
                 "token",
-                tempFile);
+                tempFile,
+                isSensitive: true);
 
             // Assert
             Assert.False(result.IsSuccess);
@@ -282,7 +316,8 @@ public class MisskeyHttpClientTests
             var result = await client.UploadImageAsync(
                 "https://misskey.example.com",
                 "token",
-                tempFile);
+                tempFile,
+                isSensitive: true);
 
             // Assert
             Assert.False(result.IsSuccess);
@@ -310,11 +345,70 @@ public class MisskeyHttpClientTests
             await client.UploadImageAsync(
                 "https://misskey.example.com/",  // 末尾スラッシュ付き
                 "token",
-                tempFile);
+                tempFile,
+                isSensitive: true);
 
             // Assert
             Assert.Single(capturedUris);
             Assert.Equal("https://misskey.example.com/api/drive/files/create", capturedUris[0].ToString());
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    // センシティブフラグ(issue #107、02書 F-007)
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task 正常系_センシティブONで画像をアップロードするとリクエストのisSensitiveがtrue()
+    {
+        // Arrange
+        var (httpClient, getBody) = CreateBodyCapturingHttpClient(
+            HttpStatusCode.OK, "{\"id\":\"file123\"}");
+        var client = new MisskeyHttpClient(httpClient);
+
+        var tempFile = Path.GetTempFileName();
+        await File.WriteAllBytesAsync(tempFile, new byte[] { 0x89, 0x50, 0x4E, 0x47 });
+        try
+        {
+            // Act
+            await client.UploadImageAsync(
+                "https://misskey.example.com", "token", tempFile, isSensitive: true);
+
+            // Assert
+            var body = getBody();
+            Assert.NotNull(body);
+            Assert.Equal("true", ExtractMultipartField(body!, "isSensitive"));
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public async Task 正常系_センシティブOFFで画像をアップロードするとリクエストのisSensitiveがfalse()
+    {
+        // Arrange
+        var (httpClient, getBody) = CreateBodyCapturingHttpClient(
+            HttpStatusCode.OK, "{\"id\":\"file123\"}");
+        var client = new MisskeyHttpClient(httpClient);
+
+        var tempFile = Path.GetTempFileName();
+        await File.WriteAllBytesAsync(tempFile, new byte[] { 0x89, 0x50, 0x4E, 0x47 });
+        try
+        {
+            // Act
+            await client.UploadImageAsync(
+                "https://misskey.example.com", "token", tempFile, isSensitive: false);
+
+            // Assert
+            var body = getBody();
+            Assert.NotNull(body);
+            Assert.Equal("false", ExtractMultipartField(body!, "isSensitive"));
         }
         finally
         {
