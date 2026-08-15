@@ -14,8 +14,11 @@ public interface IIchiPosApplication
     /// <summary>CLI入力受付（F-001）を経由する実行。コマンドライン引数を解析する。</summary>
     Task<int> RunAsync(string[] args, AppConfig config);
 
-    /// <summary>GUI入力受付（04書 G-005）を経由する実行。.txtファイル判定（F-002）は行わない。画像は添付ファイルのフルパスのリストで受け取る。</summary>
-    Task<int> RunAsync(string content, IReadOnlyList<string> imagePaths, AppConfig config);
+    /// <summary>
+    /// GUI入力受付（04書 G-005）を経由する実行。.txtファイル判定（F-002）は行わない。画像は添付ファイルのフルパスのリストで受け取る。
+    /// <paramref name="isSensitive"/> は添付画像のセンシティブフラグ（issue #107、04書 G-018）。
+    /// </summary>
+    Task<int> RunAsync(string content, IReadOnlyList<string> imagePaths, AppConfig config, bool isSensitive);
 }
 
 public class IchiPosApplication : IIchiPosApplication
@@ -84,19 +87,19 @@ public class IchiPosApplication : IIchiPosApplication
             return 1;
         }
 
-        return await RunFolderPostPipelineAsync(contentResult.Content!, parseResult.ImagePath, config);
+        return await RunFolderPostPipelineAsync(contentResult.Content!, parseResult.ImagePath, config, parseResult.IsSensitive);
     }
 
-    public async Task<int> RunAsync(string content, IReadOnlyList<string> imagePaths, AppConfig config)
+    public async Task<int> RunAsync(string content, IReadOnlyList<string> imagePaths, AppConfig config, bool isSensitive)
     {
         // GUI入力: .txtファイル判定（F-002）は行わず、常に文字列として扱う。
         // 日付プレースホルダ置換（F-013）のみ、投稿実行時にCLIと同じ規則で適用する。
         var replacedContent = _datePlaceholderReplacer.Replace(content);
-        return await RunListPostPipelineAsync(replacedContent, imagePaths, config);
+        return await RunListPostPipelineAsync(replacedContent, imagePaths, config, isSensitive);
     }
 
     /// <summary>画像一覧取得〜投稿前チェックまで（F-004〜F-005）。CLI専用: フォルダパスから画像一覧を解決する。</summary>
-    private async Task<int> RunFolderPostPipelineAsync(string content, string? imagePath, AppConfig config)
+    private async Task<int> RunFolderPostPipelineAsync(string content, string? imagePath, AppConfig config, bool isSensitive)
     {
         _outputWriter.WriteInfo($"投稿テキストを取得しました（{content.Length}文字）");
 
@@ -119,11 +122,11 @@ public class IchiPosApplication : IIchiPosApplication
         }
         _outputWriter.WriteInfo($"添付画像: {imageValidationResult.ValidImagePaths.Count}枚");
 
-        return await RunCommonPipelineAsync(content, imageValidationResult.ValidImagePaths, config);
+        return await RunCommonPipelineAsync(content, imageValidationResult.ValidImagePaths, config, isSensitive);
     }
 
     /// <summary>画像添付対象判定〜投稿前チェックまで（F-005）。GUI専用: 画面が管理する画像ファイルのフルパスのリストをそのまま検証する。</summary>
-    private async Task<int> RunListPostPipelineAsync(string content, IReadOnlyList<string> imagePaths, AppConfig config)
+    private async Task<int> RunListPostPipelineAsync(string content, IReadOnlyList<string> imagePaths, AppConfig config, bool isSensitive)
     {
         _outputWriter.WriteInfo($"投稿テキストを取得しました（{content.Length}文字）");
 
@@ -136,11 +139,11 @@ public class IchiPosApplication : IIchiPosApplication
         }
         _outputWriter.WriteInfo($"添付画像: {imageValidationResult.ValidImagePaths.Count}枚");
 
-        return await RunCommonPipelineAsync(content, imageValidationResult.ValidImagePaths, config);
+        return await RunCommonPipelineAsync(content, imageValidationResult.ValidImagePaths, config, isSensitive);
     }
 
     /// <summary>投稿前チェック〜画像削除まで（F-006〜F-011）。CLI/GUI共通の投稿パイプライン。</summary>
-    private async Task<int> RunCommonPipelineAsync(string content, List<string> validImagePaths, AppConfig config)
+    private async Task<int> RunCommonPipelineAsync(string content, List<string> validImagePaths, AppConfig config, bool isSensitive)
     {
         // 投稿テキストの自動トリミングは対象外（02書「v1対象外機能」節）だが、入力経路（直接入力・貼り付け・
         // ファイル読み込み）によらず投稿直前に文末の空白・改行だけを1回だけ除去する例外を設ける（F-006）。
@@ -158,11 +161,12 @@ public class IchiPosApplication : IIchiPosApplication
             return 1;
         }
 
-        // 6. Misskeyに投稿
+        // 6. Misskeyに投稿（添付画像のセンシティブフラグを含む。issue #107）
         var misskeyResult = await _misskeyPoster.PostAsync(
             content,
             validImagePaths,
-            config);
+            config,
+            isSensitive);
         if (!misskeyResult.IsSuccess)
         {
             _outputWriter.WriteError($"Misskey投稿エラー: {misskeyResult.ErrorMessage}");

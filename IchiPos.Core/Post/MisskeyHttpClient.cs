@@ -13,7 +13,7 @@ public class MisskeyHttpClient : IMisskeyHttpClient
         _httpClient = httpClient;
     }
 
-    public async Task<MisskeyUploadResult> UploadImageAsync(string instanceUrl, string accessToken, string imagePath)
+    public async Task<MisskeyUploadResult> UploadImageAsync(string instanceUrl, string accessToken, string imagePath, bool isSensitive)
     {
         try
         {
@@ -23,6 +23,8 @@ public class MisskeyHttpClient : IMisskeyHttpClient
             using var form = new MultipartFormDataContent();
             form.Add(new StringContent(accessToken), "i");
             form.Add(new ByteArrayContent(fileBytes), "file", fileName);
+            // センシティブ（閲覧注意）フラグ（issue #107）。drive/files/create の isSensitive に対応する。
+            form.Add(new StringContent(isSensitive ? "true" : "false"), "isSensitive");
 
             var baseUrl = instanceUrl.TrimEnd('/');
             var response = await _httpClient.PostAsync($"{baseUrl}/api/drive/files/create", form);

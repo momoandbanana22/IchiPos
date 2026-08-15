@@ -32,6 +32,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private AppConfig _config;
     private string _content = string.Empty;
     private bool _isBusy;
+    // 添付画像のセンシティブフラグ(P-20、04書 G-018)。既定はON(issue #107)。
+    private bool _isSensitive = true;
 
     public MainWindowViewModel(
         IIchiPosApplication app,
@@ -89,6 +91,17 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// 実際の上限チェックは投稿実行時に置換後のテキストに対して行う(04書 G-002 第5節)。
     /// </summary>
     public string CharacterCountDisplay => $"{Content.Length} / {MaxLength} 文字";
+
+    /// <summary>
+    /// P-20: 添付画像のセンシティブフラグ(04書 G-018、issue #107)。既定はON(true)。
+    /// 投稿実行時にMisskeyへ添付する画像へ設定される。画像がない投稿には影響しない。
+    /// アプリ起動中は状態を保持し、投稿ごとにリセットしない(G-018第4節第3項)。
+    /// </summary>
+    public bool IsSensitive
+    {
+        get => _isSensitive;
+        set => SetProperty(ref _isSensitive, value);
+    }
 
     private int MaxLength => Math.Min(_config.Limits.MisskeyMaxLength, _config.Limits.XMaxLength);
 
@@ -184,7 +197,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 return;
             }
 
-            var exitCode = await _app.RunAsync(content, imagePaths, _config);
+            var exitCode = await _app.RunAsync(content, imagePaths, _config, IsSensitive);
             if (exitCode == 0)
             {
                 _lastPostStore.SaveHash(contentHash);

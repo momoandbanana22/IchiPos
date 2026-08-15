@@ -68,6 +68,14 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
+    public void 初期状態_センシティブフラグはON()
+    {
+        // P-20 の既定はオン(04書 G-018第3節、issue #107)。
+        var vm = BuildViewModel();
+        Assert.True(vm.IsSensitive);
+    }
+
+    [Fact]
     public void 初期状態_バージョン文字列にバージョン番号を含む()
     {
         var vm = BuildViewModel();
@@ -109,7 +117,7 @@ public class MainWindowViewModelTests
     {
         var tcs = new TaskCompletionSource<int>();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .Returns(tcs.Task);
         var vm = BuildViewModel(app: mockApp);
         vm.Content = "hello";
@@ -224,7 +232,7 @@ public class MainWindowViewModelTests
     {
         var config = ValidConfig();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync("hello", It.Is<IReadOnlyList<string>>(p => p.SequenceEqual(new[] { @"C:\temp\paste1\pasted.png" })), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync("hello", It.Is<IReadOnlyList<string>>(p => p.SequenceEqual(new[] { @"C:\temp\paste1\pasted.png" })), config, It.IsAny<bool>())).ReturnsAsync(0);
         var mockStore = new Mock<IClipboardImageStore>();
         mockStore.Setup(x => x.SaveToTempFile(It.IsAny<System.Windows.Media.Imaging.BitmapSource>())).Returns(@"C:\temp\paste1\pasted.png");
         var vm = BuildViewModel(app: mockApp, config: config, clipboardImageStore: mockStore);
@@ -233,7 +241,7 @@ public class MainWindowViewModelTests
 
         await vm.PostAsync();
 
-        mockApp.Verify(x => x.RunAsync("hello", It.Is<IReadOnlyList<string>>(p => p.SequenceEqual(new[] { @"C:\temp\paste1\pasted.png" })), config), Times.Once);
+        mockApp.Verify(x => x.RunAsync("hello", It.Is<IReadOnlyList<string>>(p => p.SequenceEqual(new[] { @"C:\temp\paste1\pasted.png" })), config, It.IsAny<bool>()), Times.Once);
     }
 
     [Fact]
@@ -241,13 +249,13 @@ public class MainWindowViewModelTests
     {
         var config = ValidConfig();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync("hello", It.Is<IReadOnlyList<string>>(p => p.Count == 0), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync("hello", It.Is<IReadOnlyList<string>>(p => p.Count == 0), config, It.IsAny<bool>())).ReturnsAsync(0);
         var vm = BuildViewModel(app: mockApp, config: config);
         vm.Content = "hello";
 
         await vm.PostAsync();
 
-        mockApp.Verify(x => x.RunAsync("hello", It.Is<IReadOnlyList<string>>(p => p.Count == 0), config), Times.Once);
+        mockApp.Verify(x => x.RunAsync("hello", It.Is<IReadOnlyList<string>>(p => p.Count == 0), config, It.IsAny<bool>()), Times.Once);
     }
 
     [Fact]
@@ -255,7 +263,7 @@ public class MainWindowViewModelTests
     {
         var tcs = new TaskCompletionSource<int>();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .Returns(tcs.Task);
         var vm = BuildViewModel(app: mockApp);
         vm.Content = "hello";
@@ -275,7 +283,7 @@ public class MainWindowViewModelTests
         // 04書 G-007: 二重投稿防止
         var tcs = new TaskCompletionSource<int>();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .Returns(tcs.Task);
         var vm = BuildViewModel(app: mockApp);
         vm.Content = "hello";
@@ -449,7 +457,7 @@ public class MainWindowViewModelTests
         // 04書 G-010 第6節
         var tcs = new TaskCompletionSource<int>();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .Returns(tcs.Task);
         var mockStore = new Mock<IClipboardImageStore>();
         var vm = BuildViewModel(app: mockApp, clipboardImageStore: mockStore);
@@ -514,7 +522,7 @@ public class MainWindowViewModelTests
     {
         var tcs = new TaskCompletionSource<int>();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .Returns(tcs.Task);
         var vm = BuildViewModel(app: mockApp);
         vm.Content = "hello";
@@ -656,7 +664,7 @@ public class MainWindowViewModelTests
     {
         var tcs = new TaskCompletionSource<int>();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .Returns(tcs.Task);
         var vm = BuildViewModel(app: mockApp);
         vm.Content = "hello";
@@ -678,7 +686,7 @@ public class MainWindowViewModelTests
     {
         var config = ValidConfig();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         var vm = BuildViewModel(app: mockApp, config: config);
         vm.Content = "hello";
         vm.PasteFiles(new[] { @"C:\real\a.png", @"C:\real\b.png" });
@@ -689,7 +697,29 @@ public class MainWindowViewModelTests
         mockApp.Verify(x => x.RunAsync(
             "hello",
             It.Is<IReadOnlyList<string>>(p => p.SequenceEqual(new[] { @"C:\real\b.png", @"C:\real\a.png" })),
-            config), Times.Once);
+            config, It.IsAny<bool>()), Times.Once);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // センシティブフラグ(P-20、04書 G-018、issue #107)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task 正常系_投稿時にIsSensitiveをそのままRunAsyncへ渡す(bool isSensitive)
+    {
+        var config = ValidConfig();
+        var mockApp = new Mock<IIchiPosApplication>();
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>()))
+            .ReturnsAsync(0);
+        var vm = BuildViewModel(app: mockApp, config: config);
+        vm.Content = "hello";
+        vm.IsSensitive = isSensitive;
+
+        await vm.PostAsync();
+
+        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config, isSensitive), Times.Once);
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -720,7 +750,7 @@ public class MainWindowViewModelTests
     {
         var config = ValidConfig();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         var store = new Mock<ILastPostStore>();
         store.Setup(x => x.LoadHash()).Returns((string?)null);
         var confirmation = new Mock<IRepostConfirmation>();
@@ -730,7 +760,7 @@ public class MainWindowViewModelTests
         await vm.PostAsync();
 
         confirmation.Verify(x => x.ConfirmRepost(), Times.Never);
-        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
+        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>()), Times.Once);
     }
 
     [Fact]
@@ -738,7 +768,7 @@ public class MainWindowViewModelTests
     {
         var config = ValidConfig();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         var store = new Mock<ILastPostStore>();
         store.Setup(x => x.LoadHash()).Returns(HashOf("別の内容"));
         var confirmation = new Mock<IRepostConfirmation>();
@@ -748,7 +778,7 @@ public class MainWindowViewModelTests
         await vm.PostAsync();
 
         confirmation.Verify(x => x.ConfirmRepost(), Times.Never);
-        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
+        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>()), Times.Once);
     }
 
     [Fact]
@@ -756,7 +786,7 @@ public class MainWindowViewModelTests
     {
         var config = ValidConfig();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         var store = new Mock<ILastPostStore>();
         store.Setup(x => x.LoadHash()).Returns(HashOf("hello"));
         var confirmation = new Mock<IRepostConfirmation>();
@@ -767,7 +797,7 @@ public class MainWindowViewModelTests
         await vm.PostAsync();
 
         confirmation.Verify(x => x.ConfirmRepost(), Times.Once);
-        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
+        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>()), Times.Once);
     }
 
     [Fact]
@@ -784,7 +814,7 @@ public class MainWindowViewModelTests
 
         await vm.PostAsync();
 
-        mockApp.Verify(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()), Times.Never);
+        mockApp.Verify(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Never);
     }
 
     [Fact]
@@ -841,7 +871,7 @@ public class MainWindowViewModelTests
     {
         var config = ValidConfig();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         var store = new Mock<ILastPostStore>();
         var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store);
         vm.Content = "hello";
@@ -856,7 +886,7 @@ public class MainWindowViewModelTests
     {
         var config = ValidConfig();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(1);
+        mockApp.Setup(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(1);
         var store = new Mock<ILastPostStore>();
         var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store);
         vm.Content = "hello";
@@ -881,7 +911,7 @@ public class MainWindowViewModelTests
         await vm.PostAsync();
 
         confirmation.Verify(x => x.ConfirmRepost(), Times.Once);
-        mockApp.Verify(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()), Times.Never);
+        mockApp.Verify(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Never);
     }
 
     [Fact]
@@ -910,7 +940,7 @@ public class MainWindowViewModelTests
     {
         var config = ValidConfig();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         var store = new Mock<ILastPostStore>();
         store.Setup(x => x.LoadHash()).Returns(HashOf("今日は2026/07/19です"));
         var confirmation = new Mock<IRepostConfirmation>();
@@ -969,12 +999,12 @@ public class MainWindowViewModelTests
     {
         var config = ConfigWithTemplates("おはよう", "おやすみ");
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         var vm = BuildViewModel(app: mockApp, config: config);
 
         await vm.PostTemplateAsync("おやすみ");
 
-        mockApp.Verify(x => x.RunAsync("おやすみ", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
+        mockApp.Verify(x => x.RunAsync("おやすみ", It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>()), Times.Once);
     }
 
     [Fact]
@@ -983,13 +1013,13 @@ public class MainWindowViewModelTests
         // G-016第4節第4項: 添付画像一覧に画像が残っていても定型文投稿には添付しない。
         var config = ConfigWithTemplates("おはよう");
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         var vm = BuildViewModel(app: mockApp, config: config);
         vm.PasteFiles(new[] { @"C:\images\a.png" });
 
         await vm.PostTemplateAsync("おはよう");
 
-        mockApp.Verify(x => x.RunAsync("おはよう", It.Is<IReadOnlyList<string>>(p => p.Count == 0), config), Times.Once);
+        mockApp.Verify(x => x.RunAsync("おはよう", It.Is<IReadOnlyList<string>>(p => p.Count == 0), config, It.IsAny<bool>()), Times.Once);
     }
 
     [Fact]
@@ -998,7 +1028,7 @@ public class MainWindowViewModelTests
         // G-016第4.1節: 押下時点で投稿される内容が定型文テキストのみに一意に定まることを保証する。
         var config = ConfigWithTemplates("おはよう");
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         var vm = BuildViewModel(app: mockApp, config: config);
         vm.Content = "入力途中のテキスト";
         vm.PasteFiles(new[] { @"C:\images\a.png" });
@@ -1017,7 +1047,7 @@ public class MainWindowViewModelTests
         var tcs = new TaskCompletionSource<int>();
         var config = ConfigWithTemplates("おはよう");
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>()))
             .Returns(tcs.Task);
         var vm = BuildViewModel(app: mockApp, config: config);
 
@@ -1038,7 +1068,7 @@ public class MainWindowViewModelTests
         var tcs = new TaskCompletionSource<int>();
         var config = ConfigWithTemplates("おはよう");
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>()))
             .Returns(tcs.Task);
         var vm = BuildViewModel(app: mockApp, config: config);
         vm.Content = "hello";
@@ -1058,7 +1088,7 @@ public class MainWindowViewModelTests
         var tcs = new TaskCompletionSource<int>();
         var config = ConfigWithTemplates("おはよう");
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>()))
             .Returns(tcs.Task);
         var vm = BuildViewModel(app: mockApp, config: config);
 
@@ -1077,7 +1107,7 @@ public class MainWindowViewModelTests
         // G-016第5節第2項: 前回投稿内容の記録は通常の投稿と共有する。
         var config = ConfigWithTemplates("おはよう");
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         var store = new Mock<ILastPostStore>();
         var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store);
 
@@ -1091,7 +1121,7 @@ public class MainWindowViewModelTests
     {
         var config = ConfigWithTemplates("おはよう");
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(1);
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(1);
         var store = new Mock<ILastPostStore>();
         var vm = BuildViewModel(app: mockApp, config: config, lastPostStore: store);
 
@@ -1105,7 +1135,7 @@ public class MainWindowViewModelTests
     {
         var config = ConfigWithTemplates("おはよう");
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         var store = new Mock<ILastPostStore>();
         store.Setup(x => x.LoadHash()).Returns(HashOf("おはよう"));
         var confirmation = new Mock<IRepostConfirmation>();
@@ -1115,7 +1145,7 @@ public class MainWindowViewModelTests
         await vm.PostTemplateAsync("おはよう");
 
         confirmation.Verify(x => x.ConfirmRepost(), Times.Once);
-        mockApp.Verify(x => x.RunAsync("おはよう", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
+        mockApp.Verify(x => x.RunAsync("おはよう", It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>()), Times.Once);
     }
 
     [Fact]
@@ -1137,7 +1167,7 @@ public class MainWindowViewModelTests
 
         await vm.PostTemplateAsync("おはよう");
 
-        mockApp.Verify(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()), Times.Never);
+        mockApp.Verify(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Never);
         Assert.Contains(outputWriter.Entries, e => e.Message == "投稿を中止しました");
     }
 
@@ -1147,7 +1177,7 @@ public class MainWindowViewModelTests
         // G-016第5節第2項: 前回投稿内容の記録は投稿経路ごとに分けない。
         var config = ConfigWithTemplates("おはよう");
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         // 保存したハッシュをそのまま読み出し、投稿をまたいだ記録の共有を再現する。
         var store = new Mock<ILastPostStore>();
         string? savedHash = null;
@@ -1169,7 +1199,7 @@ public class MainWindowViewModelTests
     {
         var config = ConfigWithTemplates("今日は{date}です");
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config)).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>())).ReturnsAsync(0);
         var store = new Mock<ILastPostStore>();
         var vm = BuildViewModel(
             app: mockApp,
@@ -1181,7 +1211,7 @@ public class MainWindowViewModelTests
 
         // 置換は投稿処理層(F-013)が行うため、渡すのは未置換のテキストのまま。
         // 記録するハッシュは置換後のテキストで計算する(G-015第2節)。
-        mockApp.Verify(x => x.RunAsync("今日は{date}です", It.IsAny<IReadOnlyList<string>>(), config), Times.Once);
+        mockApp.Verify(x => x.RunAsync("今日は{date}です", It.IsAny<IReadOnlyList<string>>(), config, It.IsAny<bool>()), Times.Once);
         store.Verify(x => x.SaveHash(HashOf("今日は2026/07/20です")), Times.Once);
     }
 
@@ -1312,7 +1342,7 @@ public class MainWindowViewModelTests
         // G-017第6節: 投稿処理の実行中(IsBusy)は無効化する。
         var tcs = new TaskCompletionSource<int>();
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>()))
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
             .Returns(tcs.Task);
         var vm = BuildViewModel(app: mockApp);
         vm.Content = "hello";
@@ -1335,14 +1365,14 @@ public class MainWindowViewModelTests
         var oldConfig = ConfigWithTemplates();
         var newConfig = ConfigWithTemplates("おはよう");
         var mockApp = new Mock<IIchiPosApplication>();
-        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>())).ReturnsAsync(0);
+        mockApp.Setup(x => x.RunAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>())).ReturnsAsync(0);
         var vm = BuildViewModel(app: mockApp, config: oldConfig, configReloader: ReloaderReturning(newConfig));
         vm.Content = "hello";
 
         vm.ReloadConfig();
         await vm.PostAsync();
 
-        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), newConfig), Times.Once);
-        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), oldConfig), Times.Never);
+        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), newConfig, It.IsAny<bool>()), Times.Once);
+        mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), oldConfig, It.IsAny<bool>()), Times.Never);
     }
 }

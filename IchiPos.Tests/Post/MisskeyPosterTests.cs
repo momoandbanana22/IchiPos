@@ -34,7 +34,7 @@ public class MisskeyPosterTests
         var poster = new MisskeyPoster(mockHttpClient.Object);
 
         // Act
-        var result = await poster.PostAsync(content, new List<string>(), config);
+        var result = await poster.PostAsync(content, new List<string>(), config, isSensitive: true);
 
         // Assert
         Assert.True(result.IsSuccess);
@@ -67,7 +67,8 @@ public class MisskeyPosterTests
         mockHttpClient.Setup(x => x.UploadImageAsync(
             It.IsAny<string>(),
             It.IsAny<string>(),
-            It.IsAny<string>()))
+            It.IsAny<string>(),
+            It.IsAny<bool>()))
             .ReturnsAsync(MisskeyUploadResult.Success("file_id_1"));
         
         mockHttpClient.Setup(x => x.PostNoteAsync(
@@ -81,7 +82,7 @@ public class MisskeyPosterTests
         var poster = new MisskeyPoster(mockHttpClient.Object);
 
         // Act
-        var result = await poster.PostAsync(content, imagePaths, config);
+        var result = await poster.PostAsync(content, imagePaths, config, isSensitive: true);
 
         // Assert
         Assert.True(result.IsSuccess);
@@ -89,7 +90,8 @@ public class MisskeyPosterTests
         mockHttpClient.Verify(x => x.UploadImageAsync(
             It.IsAny<string>(),
             It.IsAny<string>(),
-            It.IsAny<string>()), Times.Exactly(2));
+            It.IsAny<string>(),
+            It.IsAny<bool>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -115,7 +117,8 @@ public class MisskeyPosterTests
         mockHttpClient.SetupSequence(x => x.UploadImageAsync(
             It.IsAny<string>(),
             It.IsAny<string>(),
-            It.IsAny<string>()))
+            It.IsAny<string>(),
+            It.IsAny<bool>()))
             .ReturnsAsync(MisskeyUploadResult.Success("file_id_1"))
             .ReturnsAsync(MisskeyUploadResult.Success("file_id_2"));
 
@@ -130,7 +133,7 @@ public class MisskeyPosterTests
         var poster = new MisskeyPoster(mockHttpClient.Object);
 
         // Act
-        await poster.PostAsync(content, imagePaths, config);
+        await poster.PostAsync(content, imagePaths, config, isSensitive: true);
 
         // Assert
         mockHttpClient.Verify(x => x.PostNoteAsync(
@@ -165,13 +168,14 @@ public class MisskeyPosterTests
         mockHttpClient.Setup(x => x.UploadImageAsync(
             It.IsAny<string>(),
             It.IsAny<string>(),
-            It.IsAny<string>()))
+            It.IsAny<string>(),
+            It.IsAny<bool>()))
             .ReturnsAsync(MisskeyUploadResult.Failure("アップロード失敗"));
         
         var poster = new MisskeyPoster(mockHttpClient.Object);
 
         // Act
-        var result = await poster.PostAsync(content, imagePaths, config);
+        var result = await poster.PostAsync(content, imagePaths, config, isSensitive: true);
 
         // Assert
         Assert.False(result.IsSuccess);
@@ -205,10 +209,60 @@ public class MisskeyPosterTests
         var poster = new MisskeyPoster(mockHttpClient.Object);
 
         // Act
-        var result = await poster.PostAsync(content, new List<string>(), config);
+        var result = await poster.PostAsync(content, new List<string>(), config, isSensitive: true);
 
         // Assert
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.ErrorMessage);
+    }
+
+    // ──────────────────────────────────────────────
+    // センシティブフラグ(issue #107)
+    // ──────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task 正常系_センシティブフラグが各画像のUploadImageAsyncへそのまま渡る(bool isSensitive)
+    {
+        // Arrange
+        var content = "テスト投稿";
+        var imagePaths = new List<string> { "image1.png", "image2.jpg" };
+        var config = new AppConfig
+        {
+            Misskey = new MisskeyConfig
+            {
+                InstanceUrl = "https://misskey.example.com",
+                AccessToken = "test_token",
+                Visibility = "public"
+            }
+        };
+
+        var mockHttpClient = new Mock<IMisskeyHttpClient>();
+        mockHttpClient.Setup(x => x.UploadImageAsync(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<bool>()))
+            .ReturnsAsync(MisskeyUploadResult.Success("file_id"));
+        mockHttpClient.Setup(x => x.PostNoteAsync(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<List<string>>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
+
+        var poster = new MisskeyPoster(mockHttpClient.Object);
+
+        // Act
+        await poster.PostAsync(content, imagePaths, config, isSensitive);
+
+        // Assert: 全画像(2枚)が指定どおりのフラグでアップロードされる。
+        mockHttpClient.Verify(x => x.UploadImageAsync(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            isSensitive), Times.Exactly(2));
     }
 }
