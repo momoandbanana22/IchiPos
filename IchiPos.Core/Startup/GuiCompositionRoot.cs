@@ -17,7 +17,7 @@ namespace IchiPos.Startup;
 /// </summary>
 public static class GuiCompositionRoot
 {
-    public static MainWindow BuildMainWindow(AppConfig config, IConfigReloader configReloader)
+    public static MainWindow BuildMainWindow(AppConfig config, IConfigReloader configReloader, IThemeApplier themeApplier)
     {
         var outputWriter = new GuiOutputWriter();
         var httpClient = new HttpClient();
@@ -53,7 +53,8 @@ public static class GuiCompositionRoot
             new DatePlaceholderReplacer(TimeProvider.System),
             new FileLastPostStore(),
             new MessageBoxRepostConfirmation(),
-            configReloader);
+            configReloader,
+            themeApplier);
         return new MainWindow(viewModel);
     }
 }

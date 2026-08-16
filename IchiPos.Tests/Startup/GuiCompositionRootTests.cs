@@ -56,7 +56,7 @@ public class GuiCompositionRootTests
         var config = ValidConfig();
 
         // Act
-        var (error, window) = RunOnSta(() => GuiCompositionRoot.BuildMainWindow(config, Mock.Of<IConfigReloader>()));
+        var (error, window) = RunOnSta(() => GuiCompositionRoot.BuildMainWindow(config, Mock.Of<IConfigReloader>(), Mock.Of<IThemeApplier>()));
 
         // Assert
         Assert.Null(error);
@@ -72,7 +72,7 @@ public class GuiCompositionRootTests
         // Act
         // WindowのDataContext(DependencyProperty)は生成スレッドでしか読めないため、STAスレッド内で取り出す。
         var (error, viewModel) = RunOnSta(() =>
-            (MainWindowViewModel)GuiCompositionRoot.BuildMainWindow(config, Mock.Of<IConfigReloader>()).DataContext);
+            (MainWindowViewModel)GuiCompositionRoot.BuildMainWindow(config, Mock.Of<IConfigReloader>(), Mock.Of<IThemeApplier>()).DataContext);
 
         // Assert
         Assert.Null(error);
@@ -89,7 +89,7 @@ public class GuiCompositionRootTests
 
         // Act
         var (error, viewModel) = RunOnSta(() =>
-            (MainWindowViewModel)GuiCompositionRoot.BuildMainWindow(config, Mock.Of<IConfigReloader>()).DataContext);
+            (MainWindowViewModel)GuiCompositionRoot.BuildMainWindow(config, Mock.Of<IConfigReloader>(), Mock.Of<IThemeApplier>()).DataContext);
 
         // Assert
         Assert.Null(error);

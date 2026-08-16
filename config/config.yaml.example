@@ -16,6 +16,9 @@ limits:
   # X の文字数上限
   x_max_length: 280
 
+# ダークモード切替(省略可、既定 system)。system: OS設定に追従 / light: 常にライト / dark: 常にダーク
+theme: system
+
 # 定型文（GUIの「定型文」タブにワンクリック投稿ボタンとして並ぶ、省略可）
 # 記載順がそのまま画面の表示順になる
 templates:
