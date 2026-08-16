@@ -14,7 +14,19 @@
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <ApplicationIcon>..\icon\IchiPos.ico</ApplicationIcon>
+    <!-- ダークモード対応(issue #109)でWPF標準のThemeModeを使用する。.NET 10時点でもMicrosoftが
+         「将来のバージョンで変更・削除されうる」と明記する実験的API(04書 G-019第4節)。 -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Fluentテーマの既定のMicaバックドロップ(半透明背景)を無効化し、不透明なテーマ背景にする(issue #109)。
+         Micaは背後のデスクトップ/ウィンドウが透けて配色が崩れて見える原因になるため、公式のアプリコンテキスト
+         スイッチで無効化する。これによりウィンドウの見た目がDWM合成に依存しなくなり、描画も安定・検証可能になる。 -->
+    <RuntimeHostConfigurationOption
+        Include="Switch.System.Windows.Appearance.DisableFluentThemeWindowBackdrop"
+        Value="True" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- System.Drawing.Common は Windows Desktop 共有フレームワーク（UseWindowsForms/UseWPF）が

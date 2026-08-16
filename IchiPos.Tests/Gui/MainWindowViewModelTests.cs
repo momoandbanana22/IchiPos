@@ -29,7 +29,8 @@ public class MainWindowViewModelTests
         IDatePlaceholderReplacer? datePlaceholderReplacer = null,
         Mock<ILastPostStore>? lastPostStore = null,
         Mock<IRepostConfirmation>? repostConfirmation = null,
-        Mock<IConfigReloader>? configReloader = null) =>
+        Mock<IConfigReloader>? configReloader = null,
+        Mock<IThemeApplier>? themeApplier = null) =>
         new MainWindowViewModel(
             (app ?? new Mock<IIchiPosApplication>()).Object,
             config ?? ValidConfig(),
@@ -40,7 +41,8 @@ public class MainWindowViewModelTests
             datePlaceholderReplacer ?? new DatePlaceholderReplacer(TimeProvider.System),
             (lastPostStore ?? new Mock<ILastPostStore>()).Object,
             (repostConfirmation ?? new Mock<IRepostConfirmation>()).Object,
-            (configReloader ?? new Mock<IConfigReloader>()).Object);
+            (configReloader ?? new Mock<IConfigReloader>()).Object,
+            (themeApplier ?? new Mock<IThemeApplier>()).Object);
 
     // ──────────────────────────────────────────────────────────────────
     // 初期状態(04書「画面項目一覧」節)
@@ -1374,5 +1376,42 @@ public class MainWindowViewModelTests
 
         mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), newConfig, It.IsAny<bool>()), Times.Once);
         mockApp.Verify(x => x.RunAsync("hello", It.IsAny<IReadOnlyList<string>>(), oldConfig, It.IsAny<bool>()), Times.Never);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // ダークモード切替(04書 G-019、issue #109)
+    // ──────────────────────────────────────────────────────────────────
+
+    private static AppConfig ConfigWithTheme(string theme)
+    {
+        var config = ValidConfig();
+        config.Theme = theme;
+        return config;
+    }
+
+    [Fact]
+    public void 正常系_再読み込み成功時_新しいthemeが適用される()
+    {
+        // G-017第5節第3項・G-019第3節: 再読み込みで theme が変わっていた場合、その場で外観へ反映する。
+        var themeApplier = new Mock<IThemeApplier>();
+        var reloader = ReloaderReturning(ConfigWithTheme("dark"));
+        var vm = BuildViewModel(config: ConfigWithTheme("system"), configReloader: reloader, themeApplier: themeApplier);
+
+        vm.ReloadConfig();
+
+        themeApplier.Verify(x => x.Apply("dark"), Times.Once);
+    }
+
+    [Fact]
+    public void 異常系_再読み込み失敗時_テーマ適用を呼ばない()
+    {
+        // G-017第4節: 失敗時は現在の設定(テーマ含む)をそのまま維持する。
+        var themeApplier = new Mock<IThemeApplier>();
+        var reloader = ReloaderFailing("設定ファイルが存在しません");
+        var vm = BuildViewModel(configReloader: reloader, themeApplier: themeApplier);
+
+        vm.ReloadConfig();
+
+        themeApplier.Verify(x => x.Apply(It.IsAny<string>()), Times.Never);
     }
 }

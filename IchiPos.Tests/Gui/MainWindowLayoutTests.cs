@@ -27,7 +27,7 @@ namespace IchiPos.Tests.Gui;
 [Collection(WpfUiCollection.Name)]
 public class MainWindowLayoutTests
 {
-    // 最小ウィンドウ(MinHeight=730)の内容領域に相当するサイズ(#96、P-20追加でissue #107にて引き上げ)。
+    // 最小ウィンドウ(MinHeight=730)の内容領域に相当するサイズ(#96、issue #107で引き上げ)。
     // 枠を差し引いた根要素の計測サイズの目安。この最小高でも入力フォームが縦スクロール/クリップ
     // なく収まることを保証するための、厳しめ(小さめ)の見積り。幅は既定幅(560)相当の 520。
     private const double ContentWidth = 520;
@@ -84,13 +84,15 @@ public class MainWindowLayoutTests
     }
 
     [Fact]
-    public void 入力フォームは_最小窓かつログ満杯でも_投稿ボタンの上に全体が収まる()
+    public void 入力フォームは_最小窓かつログ満杯でも_下部アクション行の上に全体が収まる()
     {
         // #96: 入力群を ScrollViewer で包む(#93)のをやめ、フォームは常に全体表示・縦スクロールなしとする。
-        // 結果ログを伸縮領域(*)にしたためログ行数はタブ領域を圧迫しない。最小窓高でも入力群末尾
-        // (P-20 センシティブ設定チェックボックス、issue #107)が「投稿する」(P-08)の上に収まる
+        // 結果ログを伸縮領域(*)にしたためログ行数はタブ領域を圧迫しない。最小窓高でも入力群末尾が、
+        // タブ最下部の下部アクション行(P-20 センシティブ設定 + P-08 投稿する)の上に収まる
         // (=クリップも縦スクロールバーも生じない)ことを検証する。
-        var (formBottom, buttonTop) = RunOnStaThread(() =>
+        // ※ P-20 センシティブ設定チェックボックスは issue #109 で下部アクション行へ移したため、
+        //   入力群の末尾要素は P-12 Ctrl+V 案内(TextBlock)になった。
+        var (formBottom, actionTop) = RunOnStaThread(() =>
         {
             var win = LoadWindowFromXaml();
             var root = (FrameworkElement)win.Content;
@@ -118,19 +120,18 @@ public class MainWindowLayoutTests
             root.Arrange(rect);
             root.UpdateLayout();
 
-            // 入力群末尾の要素(P-20 センシティブ設定チェックボックス)と「投稿する」を root 座標系で比べる。
-            var sensitiveCheckBox = FindDescendant<CheckBox>(root,
-                cb => (cb.Content as string) == "投稿画像をセンシティブとして扱う")!;
+            // 入力群末尾(P-12 Ctrl+V 案内)と、下部アクション行の「投稿する」を root 座標系で比べる。
+            var hint = FindDescendant<TextBlock>(root, t => (t.Text ?? string.Empty).StartsWith("画像をコピーして"))!;
             var button = FindDescendant<Button>(root, b => (b.Content as string) == "投稿する")!;
-            var cbBottom = sensitiveCheckBox.TransformToAncestor(root).Transform(new Point(0, sensitiveCheckBox.ActualHeight)).Y;
+            var hintBottom = hint.TransformToAncestor(root).Transform(new Point(0, hint.ActualHeight)).Y;
             var bTop = button.TransformToAncestor(root).Transform(new Point(0, 0)).Y;
-            return (cbBottom, bTop);
+            return (hintBottom, bTop);
         });
 
         Assert.True(
-            formBottom <= buttonTop + 1.0,
-            $"入力フォーム末尾(センシティブ設定)が「投稿する」の下へはみ出しています(クリップ)。" +
-            $" フォーム下端={formBottom:F1} > ボタン上端={buttonTop:F1}");
+            formBottom <= actionTop + 1.0,
+            $"入力フォーム末尾(Ctrl+V案内)が下部アクション行の下へはみ出しています(クリップ)。" +
+            $" フォーム下端={formBottom:F1} > アクション行上端={actionTop:F1}");
     }
 
     [Fact]
@@ -165,6 +166,66 @@ public class MainWindowLayoutTests
         });
 
         Assert.NotEqual(Visibility.Visible, hbar);
+    }
+
+    // ヘッドレス計測は、実アプリ(200%DPI・Application 全体への Fluent 適用)より入力フォームの高さを
+    // 実測で約15DIP 小さめに見積もる。実機でクリップしないことを保証するため、ヘッドレスでは
+    // 20DIP 以上の余裕を要求する(issue #109)。
+    private const double FluentClearanceMarginDip = 20.0;
+
+    /// <summary>
+    /// Fluent テーマ(ダークモード issue #109)を適用した状態で、(a)入力フォーム末尾(P-12 Ctrl+V 案内)が
+    /// タブ最下部の下部アクション行の上にクリップされず収まること、(b)センシティブ設定チェックボックス
+    /// (P-20)が「投稿する」(P-08)と同じ行に並ぶこと、を検証する。
+    ///
+    /// Fluent はクラシック(Aero2)より部品寸法が大きい。クラシック前提のレイアウトでは、Fluent 適用時に
+    /// 入力フォーム末尾が下部アクション行との境界でクリップされうる(issue #109 で実機確認)。既定の
+    /// クラシックで計測する他のレイアウトテストではこの崩れを検出できないため、実アプリと同じ Fluent の
+    /// 寸法で計測する(Fluent の ResourceDictionary を明示的にマージ。window.ThemeMode の設定だけでは
+    /// Show しない計測に Fluent 寸法が反映されない)。
+    /// </summary>
+    [Fact]
+    public void 入力フォームと下部アクション行は_Fluent適用時もクリップされず収まる()
+    {
+        var (clearance, sameRow) = RunOnStaThread(() =>
+        {
+            var win = LoadWindowFromXaml();
+            var root = (FrameworkElement)win.Content;
+            root.Resources.MergedDictionaries.Add(new System.Windows.ResourceDictionary
+            {
+                Source = new Uri("/PresentationFramework.Fluent;component/Themes/Fluent.Dark.xaml", UriKind.Relative),
+            });
+
+            var size = new Size(ContentWidth, ContentHeight);
+            var rect = new Rect(new Point(0, 0), size);
+            root.Measure(size);
+            root.Arrange(rect);
+            root.UpdateLayout();
+
+            var hint = FindDescendant<TextBlock>(root, t => (t.Text ?? string.Empty).StartsWith("画像をコピーして"))!;
+            var cb = FindDescendant<CheckBox>(root, c => (c.Content as string) == "投稿画像をセンシティブとして扱う")!;
+            var btn = FindDescendant<Button>(root, b => (b.Content as string) == "投稿する")!;
+
+            var hintBottom = hint.TransformToAncestor(root).Transform(new Point(0, hint.ActualHeight)).Y;
+            var cbTop = cb.TransformToAncestor(root).Transform(new Point(0, 0)).Y;
+            var cbMidY = cb.TransformToAncestor(root).Transform(new Point(0, cb.ActualHeight / 2)).Y;
+            var btnTop = btn.TransformToAncestor(root).Transform(new Point(0, 0)).Y;
+            var btnBottom = btn.TransformToAncestor(root).Transform(new Point(0, btn.ActualHeight)).Y;
+
+            // (a) 入力フォーム末尾が下部アクション行(チェックボックス/ボタンの上端)の上に収まる余裕
+            var clr = Math.Min(cbTop, btnTop) - hintBottom;
+            // (b) チェックボックスの中心が投稿ボタンの縦範囲に入る(=同じ行に並んでいる)
+            var same = cbMidY >= btnTop && cbMidY <= btnBottom;
+            return (clr, same);
+        });
+
+        Assert.True(sameRow,
+            "センシティブ設定チェックボックス(P-20)が「投稿する」(P-08)と同じ行に並んでいません(issue #109)。");
+        Assert.True(
+            clearance >= FluentClearanceMarginDip,
+            $"Fluent適用時、入力フォーム末尾(Ctrl+V案内)が下部アクション行にクリップされます(issue #109)。" +
+            $" 余裕={clearance:F1}DIP < 要求{FluentClearanceMarginDip}DIP。" +
+            $" MainWindow.xaml の TabControl 行(Grid.Row=0)の MinHeight を引き上げてください。");
     }
 
     // ── ヘルパ ──────────────────────────────────────────────────────────

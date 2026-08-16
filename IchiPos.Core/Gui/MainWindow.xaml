@@ -13,7 +13,10 @@
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <!-- P-16 タブ。入力フォームが常に全体表示される高さ(MinHeight)を確保する(#96、04書§5.1)。
-                 P-20 センシティブ設定チェックボックス(issue #107)の追加分だけ最小高を引き上げている。 -->
+                 この行は Height="*" だが結果ログ(2*)があるため実質MinHeightに張り付く。窓を高くしても伸びるのは
+                 主にログ行側なので、入力フォームの確保高はここ(MinHeight)で決まる。
+                 センシティブ設定チェックボックス(P-20)は投稿ボタンと同じ行(タブ最下部)へ移したため(issue #109)、
+                 入力フォーム末尾は Ctrl+V 案内(P-12)。Fluentの寸法でもこれが収まる高さを確保する(回帰テストで検証)。 -->
             <RowDefinition Height="*" MinHeight="500"/>
             <!-- P-09 結果ログ。伸縮領域。ウィンドウを縦に広げた分は主にここが伸びる(#96)。 -->
             <RowDefinition Height="2*" MinHeight="120"/>
@@ -115,16 +118,20 @@
             <!-- P-12: クリップボード画像貼り付け機能(G-010)の案内 -->
             <TextBlock Text="画像をコピーして Ctrl+V で貼り付けることもできます(複数ファイルの貼り付けにも対応)" Margin="0,4,0,0"
                        FontSize="11" Foreground="Gray"/>
-            <!-- P-20: 投稿画像のセンシティブフラグ(04書 G-018、issue #107)。既定ON。 -->
-            <CheckBox x:Name="SensitiveCheckBox" Content="投稿画像をセンシティブとして扱う" Margin="0,8,0,0"
-                      IsChecked="{Binding IsSensitive}" IsEnabled="{Binding IsNotBusy}"/>
         </StackPanel>
 
         </Grid>
 
-        <!-- P-08: 投稿する(タブ最下部に固定して常時表示、#93) -->
-        <Button Grid.Row="1" Content="投稿する" Command="{Binding PostCommand}"
-                HorizontalAlignment="Right" Padding="16,6" Margin="0,8,0,0"/>
+        <!-- P-08 投稿する と P-20 センシティブ設定を同一行に配置(issue #109。チェックボックス左・ボタン右)。
+             タブ最下部に固定し、ログ増加やウィンドウ縮小に関わらず常時表示・操作可能にする(#93、04書§5.1)。 -->
+        <DockPanel Grid.Row="1" Margin="0,8,0,0">
+            <Button DockPanel.Dock="Right" Content="投稿する" Command="{Binding PostCommand}"
+                    Padding="16,6"/>
+            <!-- P-20: 投稿画像のセンシティブフラグ(04書 G-018、issue #107)。既定ON。 -->
+            <CheckBox x:Name="SensitiveCheckBox" Content="投稿画像をセンシティブとして扱う"
+                      VerticalAlignment="Center" HorizontalAlignment="Left"
+                      IsChecked="{Binding IsSensitive}" IsEnabled="{Binding IsNotBusy}"/>
+        </DockPanel>
         </Grid>
         </TabItem>
 
@@ -178,7 +185,9 @@
 
         <!-- P-09〜P-10・P-19: 結果ログ。P-19「設定を再読み込み」(G-017)はヘッダ行の「ログをクリア」の左に置く。 -->
         <DockPanel Grid.Row="1" Margin="0,0,0,8">
-            <DockPanel DockPanel.Dock="Top" LastChildFill="False">
+            <!-- ヘッダ行(結果ログ ラベル + P-19 設定を再読み込み + P-10 ログをクリア)と、直下のログ領域の間に
+                 余白を設ける(issue #109。無いとボタンとログ枠が密着して見える)。 -->
+            <DockPanel DockPanel.Dock="Top" LastChildFill="False" Margin="0,0,0,6">
                 <TextBlock Text="結果ログ" VerticalAlignment="Center"/>
                 <!-- 「ログをクリア」を先にDock=Rightするため最も右へ、続く「設定を再読み込み」はその左に並ぶ。 -->
                 <Button DockPanel.Dock="Right" Content="ログをクリア" Command="{Binding ClearLogCommand}"

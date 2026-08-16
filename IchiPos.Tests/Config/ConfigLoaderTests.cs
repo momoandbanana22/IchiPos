@@ -309,6 +309,70 @@ templates:
         Directory.Delete(testDir, true);
     }
 
+    // ──────────────────────────────────────────────────────────────────
+    // ダークモード切替のtheme(04書 G-019、issue #109)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 異常系_themeが許容値以外の場合はエラーを返す_issue109()
+    {
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+theme: blue
+");
+        var result = new ConfigLoader().Load(testDir);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.ErrorMessage);
+        Assert.Contains("theme", result.ErrorMessage!);
+
+        Directory.Delete(testDir, true);
+    }
+
+    [Theory]
+    [InlineData("system")]
+    [InlineData("light")]
+    [InlineData("dark")]
+    public void 正常系_themeの許容値を受け付ける_issue109(string theme)
+    {
+        var testDir = CreateConfigDir($@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+theme: {theme}
+");
+        var result = new ConfigLoader().Load(testDir);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(theme, result.Config!.Theme);
+
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 正常系_theme未記載は既定systemで有効_issue109()
+    {
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+");
+        var result = new ConfigLoader().Load(testDir);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("system", result.Config!.Theme);
+
+        Directory.Delete(testDir, true);
+    }
+
     private static string CreateConfigDir(string yaml)
     {
         var testDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());

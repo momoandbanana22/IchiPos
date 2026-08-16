@@ -24,6 +24,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly ILastPostStore _lastPostStore;
     private readonly IRepostConfirmation _repostConfirmation;
     private readonly IConfigReloader _configReloader;
+    private readonly IThemeApplier _themeApplier;
     private readonly AsyncRelayCommand _postCommand;
     private readonly AsyncRelayCommand<string> _postTemplateCommand;
     private readonly RelayCommand _reloadConfigCommand;
@@ -45,7 +46,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         IDatePlaceholderReplacer datePlaceholderReplacer,
         ILastPostStore lastPostStore,
         IRepostConfirmation repostConfirmation,
-        IConfigReloader configReloader)
+        IConfigReloader configReloader,
+        IThemeApplier themeApplier)
     {
         _app = app;
         _config = config;
@@ -57,6 +59,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _lastPostStore = lastPostStore;
         _repostConfirmation = repostConfirmation;
         _configReloader = configReloader;
+        _themeApplier = themeApplier;
 
         _postCommand = new AsyncRelayCommand(PostAsync, () => !IsBusy);
         _postTemplateCommand = new AsyncRelayCommand<string>(text => PostTemplateAsync(text ?? string.Empty), _ => !IsBusy);
@@ -325,6 +328,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
 
         _config = result.Config!;
+        _themeApplier.Apply(_config.Theme);
         OnPropertyChanged(nameof(Templates));
         OnPropertyChanged(nameof(HasTemplates));
         OnPropertyChanged(nameof(CharacterCountDisplay));

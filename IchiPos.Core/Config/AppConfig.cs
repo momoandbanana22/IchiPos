@@ -14,6 +14,12 @@ public class AppConfig
     /// 任意設定であり、未記載の場合は0件として扱う(設定読み込みエラーとしない)。
     /// </summary>
     public List<string> Templates { get; set; } = new();
+
+    /// <summary>
+    /// ダークモード切替(04書 G-019、issue #109)。任意設定であり、未記載の場合は既定値"system"で有効。
+    /// 許容値は system(OSのテーマ設定に追従) / light / dark。
+    /// </summary>
+    public string Theme { get; set; } = "system";
 }
 
 public class MisskeyConfig
