@@ -28,6 +28,8 @@ public class ConfigLoader : IConfigLoader
             var yaml = File.ReadAllText(configPath, Encoding.UTF8);
             var deserializer = new DeserializerBuilder()
                 .WithNamingConvention(UnderscoredNamingConvention.Instance)
+                // 定型文は「文字列」または「misskey/x マップ」の両形式を受ける(G-016第2節、issue #111)。
+                .WithTypeConverter(new TemplateEntryYamlConverter())
                 .Build();
 
             var config = deserializer.Deserialize<AppConfig>(yaml);
@@ -55,9 +57,10 @@ public class ConfigLoader : IConfigLoader
             if (themeError is not null) return themeError;
 
             // 定型文(G-016第2節)。任意設定のため未記載でもエラーとしない。
-            // 空文字・空白のみの項目は、投稿しても投稿前チェックでエラーになるだけなので画面に並べない(第4項)。
-            config.Templates = (config.Templates ?? new List<string>())
-                .Where(t => !string.IsNullOrWhiteSpace(t))
+            // 両本文とも空・空白のみになる項目は、投稿しても投稿前チェックでエラーになるだけなので画面に並べない(第5項)。
+            // コンバータが片方省略時にもう片方を流用するため、MisskeyText が空なら X本文も空(=両方空)である。
+            config.Templates = (config.Templates ?? new List<TemplateEntry>())
+                .Where(t => !string.IsNullOrWhiteSpace(t.MisskeyText))
                 .ToList();
 
             return ConfigLoadResult.Success(config);

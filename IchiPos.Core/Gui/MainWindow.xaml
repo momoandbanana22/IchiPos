@@ -147,7 +147,7 @@
                 <TextBlock Grid.Row="0" Margin="0,0,0,8" TextWrapping="Wrap" Foreground="Gray" FontSize="11"
                            Text="設定(config/config.yaml)の templates に登録した定型文を、本文のみで投稿します(投稿タブの入力内容・添付画像は使いません)。"/>
 
-                <!-- 定型文0件のとき(G-016第3節第4項)。一覧の代わりに登録方法を案内する。 -->
+                <!-- 定型文0件のとき(G-016第3節第5項)。一覧の代わりに登録方法を案内する。 -->
                 <TextBlock Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Top"
                            Text="定型文が登録されていません。config/config.yaml の templates に登録してください">
                     <TextBlock.Style>
@@ -172,8 +172,29 @@
                                             VerticalAlignment="Top"
                                             Command="{Binding DataContext.PostTemplateCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}"/>
-                                    <!-- 押下前に投稿内容を確認できるよう、複数行の定型文も省略せず折り返して全文表示する(G-016第3節第3項)。 -->
-                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                    <!-- 押下前に投稿内容を確認できるよう、複数行の定型文も省略せず折り返して全文表示する(G-016第3節第4項)。
+                                         Misskey/Xで別本文のときは両方をラベル付きで、同一のときは1つだけ表示する(G-016第3節第3項、issue #111)。 -->
+                                    <Grid VerticalAlignment="Center">
+                                        <!-- 両本文が同一: ラベルなしで本文を1つだけ表示 -->
+                                        <TextBlock Text="{Binding MisskeyText}" TextWrapping="Wrap">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSplit}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <!-- Misskey/Xで別本文: それぞれラベル付きで表示 -->
+                                        <StackPanel Visibility="{Binding IsSplit, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <!-- Run.Text は既定でTwoWayバインドのため、読み取り専用プロパティには Mode=OneWay が必須(P-04の件数表示と同様)。 -->
+                                            <TextBlock TextWrapping="Wrap"><Run Text="Misskey: " Foreground="Gray"/><Run Text="{Binding MisskeyText, Mode=OneWay}"/></TextBlock>
+                                            <TextBlock TextWrapping="Wrap" Margin="0,2,0,0"><Run Text="X: " Foreground="Gray"/><Run Text="{Binding XText, Mode=OneWay}"/></TextBlock>
+                                        </StackPanel>
+                                    </Grid>
                                 </DockPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
