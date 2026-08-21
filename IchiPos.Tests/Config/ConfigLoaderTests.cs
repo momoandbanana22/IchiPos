@@ -226,7 +226,9 @@ templates:
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.Equal(new[] { "おはよう", "おやすみ", "いってきます" }, result.Config!.Templates);
+        // 文字列形式は Misskey・X とも同じ本文になる（issue #111）。
+        Assert.Equal(new[] { "おはよう", "おやすみ", "いってきます" }, result.Config!.Templates.Select(t => t.MisskeyText));
+        Assert.Equal(new[] { "おはよう", "おやすみ", "いってきます" }, result.Config!.Templates.Select(t => t.XText));
 
         // Cleanup
         Directory.Delete(testDir, true);
@@ -258,7 +260,7 @@ x:
     [Fact]
     public void 正常系_空文字や空白のみの定型文は一覧から除外する()
     {
-        // G-016第2節第4項: 投稿しても投稿前チェックでエラーになるだけの項目は画面に並べない。
+        // G-016第2節第5項: 投稿しても投稿前チェックでエラーになるだけの項目は画面に並べない。
         // Arrange
         var testDir = CreateConfigDir(@"
 misskey:
@@ -277,7 +279,7 @@ templates:
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.Equal(new[] { "おはよう", "おやすみ" }, result.Config!.Templates);
+        Assert.Equal(new[] { "おはよう", "おやすみ" }, result.Config!.Templates.Select(t => t.MisskeyText));
 
         // Cleanup
         Directory.Delete(testDir, true);
@@ -286,7 +288,7 @@ templates:
     [Fact]
     public void 正常系_重複した定型文は除外しない()
     {
-        // G-016第2節第5項: 重複は除外せず、登録順をそのまま表示順とする。
+        // G-016第2節第6項: 重複は除外せず、登録順をそのまま表示順とする。
         // Arrange
         var testDir = CreateConfigDir(@"
 misskey:
@@ -303,9 +305,134 @@ templates:
 
         // Assert
         Assert.True(result.IsSuccess);
-        Assert.Equal(new[] { "おはよう", "おはよう" }, result.Config!.Templates);
+        Assert.Equal(new[] { "おはよう", "おはよう" }, result.Config!.Templates.Select(t => t.MisskeyText));
 
         // Cleanup
+        Directory.Delete(testDir, true);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // 定型文: Misskey本文とX本文を分けて登録する(04書 G-016第2節、issue #111)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 正常系_マップ形式でMisskeyとXに別本文を読み込む_issue111()
+    {
+        // issue #111: Misskeyには独自マークアップ・絵文字、Xにはプレーンな本文を登録できる。
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+templates:
+  - misskey: "":ohayou:""
+    x: ""おはよう""
+");
+        var result = new ConfigLoader().Load(testDir);
+
+        Assert.True(result.IsSuccess);
+        var entry = Assert.Single(result.Config!.Templates);
+        Assert.Equal(":ohayou:", entry.MisskeyText);
+        Assert.Equal("おはよう", entry.XText);
+        Assert.True(entry.IsSplit);
+
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 正常系_マップでx省略時はmisskey本文を流用する_issue111()
+    {
+        // G-016第2節第3項: 片方省略時はもう片方の本文を流用する。
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+templates:
+  - misskey: ""おやすみ :zzz:""
+");
+        var result = new ConfigLoader().Load(testDir);
+
+        Assert.True(result.IsSuccess);
+        var entry = Assert.Single(result.Config!.Templates);
+        Assert.Equal("おやすみ :zzz:", entry.MisskeyText);
+        Assert.Equal("おやすみ :zzz:", entry.XText);
+        Assert.False(entry.IsSplit);
+
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 正常系_マップでmisskey省略時はx本文を流用する_issue111()
+    {
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+templates:
+  - x: ""おはよう""
+");
+        var result = new ConfigLoader().Load(testDir);
+
+        Assert.True(result.IsSuccess);
+        var entry = Assert.Single(result.Config!.Templates);
+        Assert.Equal("おはよう", entry.MisskeyText);
+        Assert.Equal("おはよう", entry.XText);
+
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 正常系_文字列とマップを混在して記載順のまま読み込む_issue111()
+    {
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+templates:
+  - ""おはよう""
+  - misskey: "":ohayou:""
+    x: ""おはよう(X)""
+  - ""いってきます""
+");
+        var result = new ConfigLoader().Load(testDir);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(new[] { "おはよう", ":ohayou:", "いってきます" }, result.Config!.Templates.Select(t => t.MisskeyText));
+        Assert.Equal(new[] { "おはよう", "おはよう(X)", "いってきます" }, result.Config!.Templates.Select(t => t.XText));
+
+        Directory.Delete(testDir, true);
+    }
+
+    [Fact]
+    public void 正常系_両本文が空になるマップは一覧から除外する_issue111()
+    {
+        // G-016第2節第5項: 両本文とも空・空白のみになる項目は除外する。
+        var testDir = CreateConfigDir(@"
+misskey:
+  instance_url: https://misskey.example.com
+  access_token: test_token
+x:
+  post_url_base: https://twitter.com/intent/tweet
+templates:
+  - misskey: """"
+    x: ""   ""
+  - misskey: "":ohayou:""
+    x: ""おはよう""
+");
+        var result = new ConfigLoader().Load(testDir);
+
+        Assert.True(result.IsSuccess);
+        var entry = Assert.Single(result.Config!.Templates);
+        Assert.Equal(":ohayou:", entry.MisskeyText);
+        Assert.Equal("おはよう", entry.XText);
+
         Directory.Delete(testDir, true);
     }
 

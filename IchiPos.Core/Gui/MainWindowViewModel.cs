@@ -26,7 +26,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     private readonly IConfigReloader _configReloader;
     private readonly IThemeApplier _themeApplier;
     private readonly AsyncRelayCommand _postCommand;
-    private readonly AsyncRelayCommand<string> _postTemplateCommand;
+    private readonly AsyncRelayCommand<TemplateEntry> _postTemplateCommand;
     private readonly RelayCommand _reloadConfigCommand;
 
     // 設定は起動後に再読み込み(04書 G-017)で差し替わりうるため readonly にしない。
@@ -62,7 +62,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         _themeApplier = themeApplier;
 
         _postCommand = new AsyncRelayCommand(PostAsync, () => !IsBusy);
-        _postTemplateCommand = new AsyncRelayCommand<string>(text => PostTemplateAsync(text ?? string.Empty), _ => !IsBusy);
+        _postTemplateCommand = new AsyncRelayCommand<TemplateEntry>(
+            entry => entry is null ? Task.CompletedTask : PostTemplateAsync(entry), _ => !IsBusy);
         _reloadConfigCommand = new RelayCommand(ReloadConfig, () => !IsBusy);
         RemoveImageCommand = new RelayCommand<AttachedImage>(RemoveImage);
         ClearImagesCommand = new RelayCommand(ClearImages);
@@ -139,8 +140,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
     /// <summary>P-08: 投稿するボタン。</summary>
     public ICommand PostCommand => _postCommand;
 
-    /// <summary>P-17: 定型文一覧(04書 G-016 第3節)。設定の登録順をそのまま表示順とする。</summary>
-    public IReadOnlyList<string> Templates => _config.Templates;
+    /// <summary>
+    /// P-17: 定型文一覧(04書 G-016 第3節)。設定の登録順をそのまま表示順とする。
+    /// 各要素は Misskey本文・X本文を持つ(<see cref="TemplateEntry"/>、issue #111)。
+    /// </summary>
+    public IReadOnlyList<TemplateEntry> Templates => _config.Templates;
 
     /// <summary>
     /// 定型文が1件以上登録されているか(04書 G-016 第3節第4項)。
@@ -177,17 +181,20 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     /// <summary>
     /// 定型文の投稿実行(04書 G-016)。投稿内容欄(P-01)・添付画像一覧(P-13)は参照も変更もせず、
-    /// 渡された定型文テキストのみを画像添付なしで投稿する(G-016第4.1節)。
+    /// 渡された定型文の Misskey本文・X本文のみを画像添付なしで投稿する(G-016第4.1節、issue #111)。
+    /// Misskey には MisskeyText を、X には XText を渡す。
     /// 投稿経路が違うだけで、二重投稿防止(G-007)・再投稿確認(G-015)・投稿処理層は通常の投稿と共通とする。
     /// </summary>
-    public Task PostTemplateAsync(string templateText)
-        => ExecutePostAsync(templateText, Array.Empty<string>());
+    public Task PostTemplateAsync(TemplateEntry template)
+        => ExecutePostAsync(template.MisskeyText, Array.Empty<string>(), template.XText);
 
     /// <summary>
     /// 通常の投稿(G-005)と定型文投稿(G-016)で共通の投稿実行。Application層の共通パイプラインを呼ぶ。
     /// パイプラインに入る前に、前回投稿内容と同一なら再投稿の確認を行う(G-015)。
+    /// <paramref name="xContent"/> は X投稿画面へ渡す本文(issue #111)。通常の投稿では null とし、Misskey本文(<paramref name="content"/>)と同一に扱う。
+    /// 再投稿確認・記録は Misskey本文(<paramref name="content"/>)を対象とする(G-016第5節第2項)。
     /// </summary>
-    private async Task ExecutePostAsync(string content, IReadOnlyList<string> imagePaths)
+    private async Task ExecutePostAsync(string content, IReadOnlyList<string> imagePaths, string? xContent = null)
     {
         IsBusy = true;
         try
@@ -200,7 +207,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 return;
             }
 
-            var exitCode = await _app.RunAsync(content, imagePaths, _config, IsSensitive);
+            // 通常の投稿は4引数版（X本文＝投稿本文）、定型文でX本文が指定された場合のみ5引数版を使う（issue #111）。
+            var exitCode = xContent is null
+                ? await _app.RunAsync(content, imagePaths, _config, IsSensitive)
+                : await _app.RunAsync(content, imagePaths, _config, IsSensitive, xContent);
             if (exitCode == 0)
             {
                 _lastPostStore.SaveHash(contentHash);

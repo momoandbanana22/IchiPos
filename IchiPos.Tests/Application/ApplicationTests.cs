@@ -69,7 +69,7 @@ public class ApplicationTests
         mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
             .Returns(ImageValidationResult.Success(new List<string>()));
         var mockPrePost = new Mock<IPrePostValidator>();
-        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
+        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), It.IsAny<int>())).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
         mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>())).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
         var mockX = new Mock<IXPostLauncher>();
@@ -412,7 +412,7 @@ public class ApplicationTests
         mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
             .Returns(ImageValidationResult.Success(new List<string>()));
         var mockPrePost = new Mock<IPrePostValidator>();
-        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
+        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), It.IsAny<int>())).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
         mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>())).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
         var mockX = new Mock<IXPostLauncher>();
@@ -619,7 +619,7 @@ public class ApplicationTests
         mockValidator.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>()))
             .Returns(ImageValidationResult.Success(new List<string>()));
         var mockPrePost = new Mock<IPrePostValidator>();
-        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
+        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), It.IsAny<int>())).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
         mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Failure("Misskey投稿失敗"));
@@ -656,7 +656,7 @@ public class ApplicationTests
         mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
             .Returns(ImageValidationResult.Success(new List<string>()));
         var mockPrePost = new Mock<IPrePostValidator>();
-        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
+        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), It.IsAny<int>())).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
         mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>())).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
         var mockX = new Mock<IXPostLauncher>();
@@ -752,7 +752,7 @@ public class ApplicationTests
         mockValidator.Setup(x => x.ValidateFiles(imagePaths))
             .Returns(ImageValidationResult.Success(imagePaths));
         var mockPrePost = new Mock<IPrePostValidator>();
-        mockPrePost.Setup(x => x.Validate("hello", imagePaths, 280)).Returns(PrePostValidationResult.Success());
+        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), It.IsAny<int>())).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
         mockMisskey.Setup(x => x.PostAsync("hello", imagePaths, config, It.IsAny<bool>())).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
         var mockX = new Mock<IXPostLauncher>();
@@ -786,7 +786,7 @@ public class ApplicationTests
         mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
             .Returns(ImageValidationResult.Success(new List<string>()));
         var mockPrePost = new Mock<IPrePostValidator>();
-        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
+        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), It.IsAny<int>())).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
         mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>())).ReturnsAsync(MisskeyPostResult.Success("note_id_123"));
         var mockX = new Mock<IXPostLauncher>();
@@ -869,7 +869,7 @@ public class ApplicationTests
         mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
             .Returns(ImageValidationResult.Success(new List<string>()));
         var mockPrePost = new Mock<IPrePostValidator>();
-        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), 280)).Returns(PrePostValidationResult.Success());
+        mockPrePost.Setup(x => x.Validate("hello", It.IsAny<List<string>>(), It.IsAny<int>())).Returns(PrePostValidationResult.Success());
         var mockMisskey = new Mock<IMisskeyPoster>();
         mockMisskey.Setup(x => x.PostAsync("hello", It.IsAny<List<string>>(), config, It.IsAny<bool>()))
             .ReturnsAsync(MisskeyPostResult.Failure("Misskey投稿失敗"));
@@ -955,5 +955,182 @@ public class ApplicationTests
         await app.RunAsync("hello", imagePaths, config, isSensitive);
 
         mockMisskey.Verify(x => x.PostAsync("hello", imagePaths, config, isSensitive), Times.Once);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // 定型文: Misskey本文とX本文を分けて投稿する(04書 G-016、issue #111)
+    // ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GUI入力_定型文_MisskeyにはMisskey本文_XにはX本文を投稿する_issue111()
+    {
+        // issue #111: 1つの投稿でMisskeyには:ohayou:を、Xにはおはようを投稿できる。
+        var config = new AppConfig
+        {
+            Misskey = new MisskeyConfig { InstanceUrl = "https://misskey.example.com", AccessToken = "test_token", Visibility = "public" },
+            X = new XConfig { PostUrlBase = "https://twitter.com/intent/tweet" },
+            Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 }
+        };
+
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), new Mock<IImageFolderReader>(), mockValidator,
+            mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
+            datePlaceholder: PassthroughDatePlaceholder());
+
+        var result = await app.RunAsync(":ohayou:", Array.Empty<string>(), config, isSensitive: true, xContent: "おはよう");
+
+        Assert.Equal(0, result);
+        mockMisskey.Verify(x => x.PostAsync(":ohayou:", It.IsAny<List<string>>(), config, It.IsAny<bool>()), Times.Once);
+        mockX.Verify(x => x.LaunchAsync("おはよう", config), Times.Once);
+    }
+
+    [Fact]
+    public async Task GUI入力_xContent省略時はMisskeyもXも同じ本文になる_issue111()
+    {
+        // xContent を渡さない通常の投稿・CLI相当では、Misskey・X とも同じ本文を投稿する（後方互換）。
+        var config = new AppConfig
+        {
+            Misskey = new MisskeyConfig { InstanceUrl = "https://misskey.example.com", AccessToken = "test_token", Visibility = "public" },
+            X = new XConfig { PostUrlBase = "https://twitter.com/intent/tweet" },
+            Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 }
+        };
+
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), new Mock<IImageFolderReader>(), mockValidator,
+            mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
+            datePlaceholder: PassthroughDatePlaceholder());
+
+        // xContent を省略（既定 null）。
+        var result = await app.RunAsync("おはよう", Array.Empty<string>(), config, isSensitive: true);
+
+        Assert.Equal(0, result);
+        mockMisskey.Verify(x => x.PostAsync("おはよう", It.IsAny<List<string>>(), config, It.IsAny<bool>()), Times.Once);
+        mockX.Verify(x => x.LaunchAsync("おはよう", config), Times.Once);
+    }
+
+    [Fact]
+    public async Task GUI入力_定型文_Misskey本文はMisskey上限_X本文はX上限で検証する_issue111()
+    {
+        var config = new AppConfig
+        {
+            Misskey = new MisskeyConfig { InstanceUrl = "https://misskey.example.com", AccessToken = "test_token", Visibility = "public" },
+            X = new XConfig { PostUrlBase = "https://twitter.com/intent/tweet" },
+            Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 }
+        };
+
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), new Mock<IImageFolderReader>(), mockValidator,
+            mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
+            datePlaceholder: PassthroughDatePlaceholder());
+
+        await app.RunAsync("みすきー本文", Array.Empty<string>(), config, isSensitive: true, xContent: "x本文");
+
+        // Misskey本文は misskey_max_length(5000)、X本文は x_max_length(280) で検証される。
+        mockPrePost.Verify(x => x.Validate("みすきー本文", It.IsAny<List<string>>(), 5000), Times.Once);
+        mockPrePost.Verify(x => x.Validate("x本文", It.IsAny<List<string>>(), 280), Times.Once);
+    }
+
+    [Fact]
+    public async Task GUI入力_定型文_X本文が上限超過ならMisskey投稿もX起動もしない_issue111()
+    {
+        // 本文ごとの上限差: Misskey本文(短い)は通るが、X本文(長い)がX上限を超える場合。
+        var config = new AppConfig
+        {
+            Misskey = new MisskeyConfig { InstanceUrl = "https://misskey.example.com", AccessToken = "test_token", Visibility = "public" },
+            X = new XConfig { PostUrlBase = "https://twitter.com/intent/tweet" },
+            Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 }
+        };
+
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate("短い", It.IsAny<List<string>>(), 5000))
+            .Returns(PrePostValidationResult.Success());
+        mockPrePost.Setup(x => x.Validate("とても長いX本文", It.IsAny<List<string>>(), 280))
+            .Returns(PrePostValidationResult.Failure("投稿テキストが長さ制限を超えています（280文字以内）"));
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        var mockX = new Mock<IXPostLauncher>();
+        var mockOutput = new Mock<IOutputWriter>();
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), new Mock<IImageFolderReader>(), mockValidator,
+            mockPrePost, mockMisskey, mockX, mockOutput,
+            datePlaceholder: PassthroughDatePlaceholder());
+
+        var result = await app.RunAsync("短い", Array.Empty<string>(), config, isSensitive: true, xContent: "とても長いX本文");
+
+        Assert.Equal(1, result);
+        mockOutput.Verify(x => x.WriteError(It.IsAny<string>()), Times.Once);
+        mockMisskey.Verify(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Never);
+        mockX.Verify(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GUI入力_定型文_日付プレースホルダはMisskey本文とX本文の双方に適用される_issue111()
+    {
+        var config = new AppConfig { Limits = new LimitsConfig { MisskeyMaxLength = 5000, XMaxLength = 280 } };
+
+        var mockValidator = new Mock<IImageValidator>();
+        mockValidator.Setup(x => x.ValidateFiles(It.IsAny<List<string>>()))
+            .Returns(ImageValidationResult.Success(new List<string>()));
+        var mockPrePost = new Mock<IPrePostValidator>();
+        mockPrePost.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<int>()))
+            .Returns(PrePostValidationResult.Success());
+        var mockMisskey = new Mock<IMisskeyPoster>();
+        mockMisskey.Setup(x => x.PostAsync(It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()))
+            .ReturnsAsync(MisskeyPostResult.Success("note123"));
+        var mockX = new Mock<IXPostLauncher>();
+        mockX.Setup(x => x.LaunchAsync(It.IsAny<string>(), It.IsAny<AppConfig>())).ReturnsAsync(XPostLaunchResult.Success());
+
+        var mockDate = new Mock<IDatePlaceholderReplacer>();
+        mockDate.Setup(x => x.Replace("M{date}")).Returns("M2026/07/04");
+        mockDate.Setup(x => x.Replace("X{date}")).Returns("X2026/07/04");
+
+        var app = BuildApp(
+            new Mock<ICommandLineParser>(), new Mock<IContentResolver>(), new Mock<IImageFolderReader>(), mockValidator,
+            mockPrePost, mockMisskey, mockX, new Mock<IOutputWriter>(),
+            datePlaceholder: mockDate);
+
+        await app.RunAsync("M{date}", Array.Empty<string>(), config, isSensitive: true, xContent: "X{date}");
+
+        mockMisskey.Verify(x => x.PostAsync("M2026/07/04", It.IsAny<List<string>>(), It.IsAny<AppConfig>(), It.IsAny<bool>()), Times.Once);
+        mockX.Verify(x => x.LaunchAsync("X2026/07/04", It.IsAny<AppConfig>()), Times.Once);
     }
 }
